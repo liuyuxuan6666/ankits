@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Ankits</string>
-    <string name="hello_world">Hello, Ankits!</string>
+    <string name="tool_text_to_image">长文本转图</string>
+    <string name="tool_text_to_image_desc">将长文本渲染为图片，方便分享</string>
+    <string name="hint_text_input">在此输入文本…</string>
+    <string name="btn_refresh_preview">刷新预览</string>
+    <string name="btn_export">导出到相册</string>
+    <string name="label_bg_color">背景色</string>
+    <string name="label_text_color">文字色</string>
+    <string name="label_font_size">字号</string>
+    <string name="label_canvas_width">画布宽度</string>
+    <string name="export_success">已保存到相册</string>
+    <string name="export_failed">导出失败</string>
 </resources>
