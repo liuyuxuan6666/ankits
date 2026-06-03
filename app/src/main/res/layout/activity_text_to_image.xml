@@ -28,50 +28,41 @@
                 app:titleTextColor="@color/on_surface"
                 app:navigationIcon="?attr/homeAsUpIndicator" />
 
-            <!-- Text Input Card -->
-            <com.google.android.material.card.MaterialCardView
+            <!-- Text Input -->
+            <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                app:cardElevation="0dp"
-                app:cardCornerRadius="20dp"
-                app:cardBackgroundColor="@color/card_background"
-                app:strokeWidth="1dp"
-                app:strokeColor="@color/outline_variant"
-                android:padding="12dp">
+                android:hint="@string/hint_text_input"
+                app:hintTextColor="@color/primary"
+                app:boxStrokeColor="@color/outline"
+                app:boxStrokeWidth="1dp"
+                app:boxStrokeWidthFocused="2dp"
+                app:boxBackgroundColor="@color/card_background"
+                app:boxCornerRadiusBottomEnd="20dp"
+                app:boxCornerRadiusBottomStart="20dp"
+                app:boxCornerRadiusTopEnd="20dp"
+                app:boxCornerRadiusTopStart="20dp"
+                app:counterEnabled="true"
+                app:counterMaxLength="10000"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-                <com.google.android.material.textfield.TextInputLayout
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/textInput"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/hint_text_input"
-                    app:hintTextColor="@color/primary"
-                    app:boxStrokeColor="@color/outline"
-                    app:boxStrokeWidth="1dp"
-                    app:boxStrokeWidthFocused="2dp"
-                    app:boxCornerRadiusBottomEnd="12dp"
-                    app:boxCornerRadiusBottomStart="12dp"
-                    app:boxCornerRadiusTopEnd="12dp"
-                    app:boxCornerRadiusTopStart="12dp"
-                    app:counterEnabled="true"
-                    app:counterMaxLength="10000"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                    android:minHeight="200dp"
+                    android:gravity="top|start"
+                    android:inputType="textMultiLine"
+                    android:textSize="15sp"
+                    android:lineSpacingExtra="6sp"
+                    android:fontFamily="sans-serif"
+                    android:textColor="@color/on_surface"
+                    android:paddingHorizontal="4dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="8dp" />
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/textInput"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minHeight="200dp"
-                        android:gravity="top|start"
-                        android:inputType="textMultiLine"
-                        android:textSize="15sp"
-                        android:lineSpacingExtra="6sp"
-                        android:fontFamily="sans-serif"
-                        android:textColor="@color/on_surface"
-                        android:paddingVertical="4dp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-            </com.google.android.material.card.MaterialCardView>
+            </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Style Config Card -->
             <com.google.android.material.card.MaterialCardView
