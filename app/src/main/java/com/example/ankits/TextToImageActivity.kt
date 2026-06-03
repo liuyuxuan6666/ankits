@@ -1,20 +1,22 @@
 package com.example.ankits
 
-import android.content.res.ColorStateList
 import android.content.ContentValues
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.TypedValue
-import android.widget.Toast
 import android.widget.SeekBar
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -24,6 +26,9 @@ class TextToImageActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityTextToImageBinding
     private var previewBitmap: Bitmap? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private val debounceDelay = 300L
+    private val renderRunnable = Runnable { renderPreview() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,6 +47,7 @@ class TextToImageActivity : AppCompatActivity() {
         binding.fontSizeSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 updateFontSizeLabel(progress)
+                scheduleRender()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -50,23 +56,34 @@ class TextToImageActivity : AppCompatActivity() {
         binding.canvasWidthSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 updateCanvasWidthLabel(progress)
+                scheduleRender()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        binding.textInput.addTextChangedListener(SimpleTextWatcher {
+            scheduleRender()
+        })
+
         binding.bgColorInput.addTextChangedListener(SimpleTextWatcher {
             updateSwatch(binding.bgColorSwatch, binding.bgColorInput.text.toString())
+            scheduleRender()
         })
         binding.textColorInput.addTextChangedListener(SimpleTextWatcher {
             updateSwatch(binding.textColorSwatch, binding.textColorInput.text.toString())
+            scheduleRender()
         })
 
         updateSwatch(binding.bgColorSwatch, "#FFFFFF")
         updateSwatch(binding.textColorSwatch, "#333333")
 
-        binding.refreshBtn.setOnClickListener { renderPreview() }
         binding.exportBtn.setOnClickListener { exportToGallery() }
+    }
+
+    private fun scheduleRender() {
+        handler.removeCallbacks(renderRunnable)
+        handler.postDelayed(renderRunnable, debounceDelay)
     }
 
     private fun handleWindowInsets() {
@@ -106,7 +123,8 @@ class TextToImageActivity : AppCompatActivity() {
     private fun renderPreview() {
         val text = binding.textInput.text?.toString() ?: ""
         if (text.isEmpty()) {
-            Toast.makeText(this, "请先输入文本", Toast.LENGTH_SHORT).show()
+            previewBitmap = null
+            binding.previewImage.setImageBitmap(null)
             return
         }
 
@@ -155,7 +173,7 @@ class TextToImageActivity : AppCompatActivity() {
     private fun exportToGallery() {
         val bitmap = previewBitmap
         if (bitmap == null) {
-            Toast.makeText(this, "请先刷新预览", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "请先输入文本", Toast.LENGTH_SHORT).show()
             return
         }
 
