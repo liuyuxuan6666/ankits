@@ -5,6 +5,8 @@ import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -12,8 +14,11 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.text.Layout
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
+import android.text.style.StyleSpan
 import android.util.TypedValue
 import android.widget.SeekBar
 import android.widget.Toast
@@ -21,6 +26,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.ankits.databinding.ActivityTextToImageBinding
+import com.google.android.material.button.MaterialButton
+import android.graphics.Typeface
 
 class TextToImageActivity : AppCompatActivity() {
 
@@ -29,6 +36,7 @@ class TextToImageActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private val debounceDelay = 300L
     private val renderRunnable = Runnable { renderPreview() }
+    private var currentTemplate: Template = Templates.SIMPLE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,10 +83,70 @@ class TextToImageActivity : AppCompatActivity() {
             scheduleRender()
         })
 
-        updateSwatch(binding.bgColorSwatch, "#FFFFFF")
-        updateSwatch(binding.textColorSwatch, "#333333")
-
         binding.exportBtn.setOnClickListener { exportToGallery() }
+
+        setupTemplateChips()
+        selectTemplate(Templates.SIMPLE)
+    }
+
+    private fun setupTemplateChips() {
+        val chipGroup = binding.templateChips
+        for ((index, template) in Templates.ALL.withIndex()) {
+            val chip = MaterialButton(this).apply {
+                text = template.name
+                textSize = 13f
+                isAllCaps = false
+                setPadding(16, 0, 16, 0)
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    (40 * resources.displayMetrics.density).toInt()
+                ).apply {
+                    if (index > 0) leftMargin = (8 * resources.displayMetrics.density).toInt()
+                }
+                strokeWidth = 1
+                cornerRadius = 20
+                setOnClickListener { selectTemplate(template) }
+            }
+            chipGroup.addView(chip)
+        }
+    }
+
+    private fun selectTemplate(template: Template) {
+        currentTemplate = template
+
+        val mainStyle = template.mainStyle
+        binding.bgColorInput.setText(colorToHex(mainStyle.bgColor))
+        binding.textColorInput.setText(colorToHex(mainStyle.textColor))
+        val sp = mainStyle.bodySizeSp.toInt()
+        val progress = (sp - 20).coerceIn(0, 60)
+        binding.fontSizeSeek.progress = progress
+        updateFontSizeLabel(progress)
+
+        updateChipStyles()
+        scheduleRender()
+    }
+
+    private fun updateChipStyles() {
+        val chipGroup = binding.templateChips
+        for (i in 0 until chipGroup.childCount) {
+            val chip = chipGroup.getChildAt(i) as MaterialButton
+            val selected = Templates.ALL[i] == currentTemplate
+            if (selected) {
+                chip.setBackgroundColor(Color.parseColor("#1A73E8"))
+                chip.setTextColor(Color.WHITE)
+                chip.strokeWidth = 0
+            } else {
+                chip.setBackgroundColor(Color.TRANSPARENT)
+                chip.setTextColor(Color.parseColor("#49454F"))
+                chip.strokeWidth = 1
+                chip.strokeColor = ColorStateList.valueOf(Color.parseColor("#CAC4D0"))
+            }
+        }
+    }
+
+    private fun colorToHex(color: Int): String {
+        if (color == Color.TRANSPARENT) return "#FFFFFF"
+        return String.format("#%06X", 0xFFFFFF and color)
     }
 
     private fun scheduleRender() {
@@ -113,11 +181,7 @@ class TextToImageActivity : AppCompatActivity() {
     }
 
     private fun parseColorSafely(hex: String, fallback: Int): Int {
-        return try {
-            Color.parseColor(hex)
-        } catch (_: Exception) {
-            fallback
-        }
+        return try { Color.parseColor(hex) } catch (_: Exception) { fallback }
     }
 
     private fun renderPreview() {
@@ -129,43 +193,178 @@ class TextToImageActivity : AppCompatActivity() {
         }
 
         val canvasWidth = 400 + binding.canvasWidthSeek.progress
-        val fontSizeSp = 20 + binding.fontSizeSeek.progress
-        val bgColor = parseColorSafely(binding.bgColorInput.text.toString(), Color.WHITE)
-        val textColor = parseColorSafely(binding.textColorInput.text.toString(), Color.parseColor("#333333"))
-        val padding = 48
-        val textWidth = canvasWidth - padding * 2
+        val density = resources.displayMetrics.density
+        val sections = MarkdownParser.parse(text)
+        val template = currentTemplate
 
-        val fontSizePx = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_SP,
-            fontSizeSp.toFloat(),
-            resources.displayMetrics
-        )
-        val textPaint = TextPaint().apply {
-            color = textColor
-            textSize = fontSizePx
-            isAntiAlias = true
+        val bodySizeSp = (20 + binding.fontSizeSeek.progress).toFloat()
+        val bodyColor = parseColorSafely(binding.bgColorInput.text.toString(), Color.WHITE)
+        val bodyTextColor = parseColorSafely(binding.textColorInput.text.toString(), Color.parseColor("#333333"))
+
+        val outerPadding = (template.outerPaddingDp * density).toInt()
+
+        // Calculate total height
+        var totalHeight = outerPadding * 2
+        val sectionRenderers = mutableListOf<SectionRenderer>()
+
+        for (section in sections) {
+            val style = when (section.type) {
+                SectionType.HERO -> template.heroStyle
+                SectionType.SUB -> template.subStyle
+                else -> template.mainStyle
+            }
+            val sectionWidth = canvasWidth - outerPadding * 2
+
+            renderer@ val renderer = SectionRenderer()
+            renderer.section = section
+            renderer.style = style
+            renderer.yStart = totalHeight
+
+            val sectionInnerWidth = sectionWidth - ((style.paddingLeftDp + style.paddingRightDp) * density).toInt()
+            var sectionHeight = 0
+            sectionHeight += (style.paddingTopDp * density).toInt()
+
+            var titleLayout: StaticLayout? = null
+            if (section.title != null && section.title.isNotEmpty()) {
+                val titlePaint = TextPaint().apply {
+                    color = if (style.titleTextColor != 0) style.titleTextColor else style.textColor
+                    textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, style.titleSizeSp, resources.displayMetrics)
+                    isAntiAlias = true
+                    if (style.titleBold) typeface = Typeface.DEFAULT_BOLD
+                }
+                titleLayout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    StaticLayout.Builder.obtain(section.title, 0, section.title.length, titlePaint, sectionInnerWidth)
+                        .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                        .setLineSpacing(0f, 1.2f).build()
+                } else {
+                    @Suppress("DEPRECATION")
+                    StaticLayout(section.title, titlePaint, sectionInnerWidth, Layout.Alignment.ALIGN_NORMAL, 1.2f, 0f, false)
+                }
+                val titlePad = if (style.titleCornerRadiusDp > 0f) (8f * density).toInt() else 0
+                sectionHeight += titlePad + titleLayout.height + titlePad
+            }
+
+            var bodyLayout: StaticLayout? = null
+            if (section.body.isNotEmpty()) {
+                val bodyPaint = TextPaint().apply {
+                    color = bodyTextColor
+                    textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, bodySizeSp, resources.displayMetrics)
+                    isAntiAlias = true
+                }
+                bodyLayout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    StaticLayout.Builder.obtain(section.body, 0, section.body.length, bodyPaint, sectionInnerWidth)
+                        .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+                        .setLineSpacing(0f, 1.3f).build()
+                } else {
+                    @Suppress("DEPRECATION")
+                    StaticLayout(section.body, bodyPaint, sectionInnerWidth, Layout.Alignment.ALIGN_NORMAL, 1.3f, 0f, false)
+                }
+                val gap = if (titleLayout != null) (6f * density).toInt() else 0
+                sectionHeight += gap + bodyLayout.height
+            }
+
+            sectionHeight += (style.paddingBottomDp * density).toInt()
+
+            if (section != sections.lastOrNull()) {
+                sectionHeight += (template.sectionGapDp * density).toInt()
+            }
+
+            renderer.titleLayout = titleLayout
+            renderer.bodyLayout = bodyLayout
+            renderer.sectionHeight = sectionHeight
+            renderer.sectionWidth = sectionWidth
+
+            sectionRenderers.add(renderer)
+            totalHeight += sectionHeight
         }
 
-        val layout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            StaticLayout.Builder
-                .obtain(text, 0, text.length, textPaint, textWidth)
-                .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-                .setLineSpacing(0f, 1.2f)
-                .build()
-        } else {
-            @Suppress("DEPRECATION")
-            StaticLayout(text, textPaint, textWidth, Layout.Alignment.ALIGN_NORMAL, 1.2f, 0f, false)
-        }
+        totalHeight += outerPadding
 
-        val totalHeight = layout.height + padding * 2
+        if (totalHeight <= 0) return
 
         previewBitmap = Bitmap.createBitmap(canvasWidth, totalHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(previewBitmap!!)
-        canvas.drawColor(bgColor)
-        canvas.save()
-        canvas.translate(padding.toFloat(), padding.toFloat())
-        layout.draw(canvas)
-        canvas.restore()
+
+        // Draw canvas background
+        canvas.drawColor(template.canvasBg)
+
+        // Draw each section
+        for (renderer in sectionRenderers) {
+            val style = renderer.style!!
+            val x = outerPadding
+            var y = renderer.yStart
+            val w = renderer.sectionWidth
+            val h = renderer.sectionHeight - if (renderer != sectionRenderers.lastOrNull()) (template.sectionGapDp * density).toInt() else 0
+
+            // Section background
+            if (style.bgColor != Color.TRANSPARENT && style.bgColor != 0) {
+                val bgPaint = Paint().apply {
+                    color = style.bgColor
+                    isAntiAlias = true
+                }
+                if (style.cornerRadiusDp > 0f) {
+                    val radius = style.cornerRadiusDp * density
+                    canvas.drawRoundRect(RectF(x.toFloat(), y.toFloat(), (x + w).toFloat(), (y + h).toFloat()), radius, radius, bgPaint)
+                } else {
+                    canvas.drawRect(RectF(x.toFloat(), y.toFloat(), (x + w).toFloat(), (y + h).toFloat()), bgPaint)
+                }
+            }
+
+            // Accent bar
+            if (style.accentWidthDp > 0f) {
+                val accentW = style.accentWidthDp * density
+                val accentPaint = Paint().apply {
+                    color = style.accentColor
+                    isAntiAlias = true
+                }
+                canvas.drawRect(RectF(x.toFloat(), y.toFloat(), x + accentW, (y + h).toFloat()), accentPaint)
+            }
+
+            // Divider at bottom
+            if (style.dividerColor != 0) {
+                val divPaint = Paint().apply {
+                    color = style.dividerColor
+                    strokeWidth = 1f * density
+                }
+                canvas.drawLine(x.toFloat(), (y + h).toFloat(), (x + w).toFloat(), (y + h).toFloat(), divPaint)
+            }
+
+            // Content
+            val padLeft = (style.paddingLeftDp * density).toInt()
+            var cy = y + (style.paddingTopDp * density).toInt()
+
+            renderer.titleLayout?.let { titleLayout ->
+                if (style.titleCornerRadiusDp > 0f && style.titleBgColor != 0) {
+                    val titlePad = (8f * density).toInt()
+                    val titleW = titleLayout.width + titlePad * 2
+                    val titleH = titleLayout.height + titlePad * 2
+                    val rect = RectF(
+                        (x + padLeft - titlePad).toFloat(),
+                        (cy - titlePad).toFloat(),
+                        (x + padLeft - titlePad + titleW).toFloat(),
+                        (cy - titlePad + titleH).toFloat()
+                    )
+                    val radius = style.titleCornerRadiusDp * density
+                    val bgPaint = Paint().apply { color = style.titleBgColor; isAntiAlias = true }
+                    canvas.drawRoundRect(rect, radius, radius, bgPaint)
+                    cy += titlePad
+                }
+                canvas.save()
+                canvas.translate((x + padLeft).toFloat(), cy.toFloat())
+                titleLayout.draw(canvas)
+                canvas.restore()
+                cy += titleLayout.height + if (style.titleCornerRadiusDp > 0f) (8f * density).toInt() else 0
+            }
+
+            renderer.bodyLayout?.let { bodyLayout ->
+                val gap = if (renderer.titleLayout != null) (6f * density).toInt() else 0
+                cy += gap
+                canvas.save()
+                canvas.translate((x + padLeft).toFloat(), cy.toFloat())
+                bodyLayout.draw(canvas)
+                canvas.restore()
+            }
+        }
 
         binding.previewImage.setImageBitmap(previewBitmap)
     }
@@ -179,7 +378,6 @@ class TextToImageActivity : AppCompatActivity() {
 
         try {
             val filename = "ankits_${System.currentTimeMillis()}.png"
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val values = ContentValues().apply {
                     put(MediaStore.Images.Media.DISPLAY_NAME, filename)
@@ -201,16 +399,24 @@ class TextToImageActivity : AppCompatActivity() {
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
                 }
             }
-
             Toast.makeText(this, R.string.export_success, Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "${getString(R.string.export_failed)}: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
+
+    private class SectionRenderer {
+        var section: MarkdownSection? = null
+        var style: SectionStyle? = null
+        var yStart: Int = 0
+        var sectionHeight: Int = 0
+        var sectionWidth: Int = 0
+        var titleLayout: StaticLayout? = null
+        var bodyLayout: StaticLayout? = null
+    }
 }
 
-private class SimpleTextWatcher(private val onChange: () -> Unit) :
-    android.text.TextWatcher {
+private class SimpleTextWatcher(private val onChange: () -> Unit) : android.text.TextWatcher {
     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
     override fun afterTextChanged(s: android.text.Editable?) { onChange() }
