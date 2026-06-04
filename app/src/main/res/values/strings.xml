@@ -16,4 +16,7 @@
     <string name="btn_preview">预览</string>
     <string name="preview_title">预览</string>
     <string name="label_line_spacing">行间距</string>
+    <string name="tab_favorites">收藏夹</string>
+    <string name="tab_tools">工具</string>
+    <string name="settings">设置</string>
 </resources>

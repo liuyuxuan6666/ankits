@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -18,6 +19,8 @@ import com.example.ankits.databinding.ItemToolCardBinding
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var toolAdapter: ToolAdapter
+    private var isFavoritesTab = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,25 +29,59 @@ class MainActivity : AppCompatActivity() {
 
         handleWindowInsets()
 
-        binding.toolList.layoutManager = LinearLayoutManager(this)
-        binding.toolList.adapter = ToolAdapter(
-            listOf(
-                Tool(
-                    name = getString(R.string.tool_text_to_image),
-                    desc = getString(R.string.tool_text_to_image_desc),
-                    icon = R.drawable.ic_text_to_image,
-                    targetActivity = TextToImageActivity::class.java
-                )
+        val allTools = listOf(
+            Tool(
+                name = getString(R.string.tool_text_to_image),
+                desc = getString(R.string.tool_text_to_image_desc),
+                icon = R.drawable.ic_text_to_image,
+                targetActivity = TextToImageActivity::class.java
             )
         )
+
+        toolAdapter = ToolAdapter(allTools)
+        binding.toolList.layoutManager = LinearLayoutManager(this)
+        binding.toolList.adapter = toolAdapter
+
+        binding.settingsBtn.setOnClickListener {
+            // TODO: open settings
+        }
+
+        binding.tabFavorites.setOnClickListener { selectTab(true) }
+        binding.tabTools.setOnClickListener { selectTab(false) }
+    }
+
+    private fun selectTab(favorites: Boolean) {
+        if (isFavoritesTab == favorites) return
+        isFavoritesTab = favorites
+
+        val primary = ContextCompat.getColor(this, R.color.primary)
+        val variant = ContextCompat.getColor(this, R.color.on_surface_variant)
+
+        if (favorites) {
+            binding.iconFavorites.setColorFilter(primary)
+            binding.labelFavorites.setTextColor(primary)
+            binding.iconTools.setColorFilter(variant)
+            binding.labelTools.setTextColor(variant)
+        } else {
+            binding.iconTools.setColorFilter(primary)
+            binding.labelTools.setTextColor(primary)
+            binding.iconFavorites.setColorFilter(variant)
+            binding.labelFavorites.setTextColor(variant)
+        }
     }
 
     private fun handleWindowInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(binding.rootLayout) { view, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(binding.rootLayout) { _, insets ->
             val statusBar = insets.getInsets(WindowInsetsCompat.Type.statusBars())
             val navBar = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            view.setPadding(0, statusBar.top, 0, navBar.bottom)
-            insets
+            binding.rootLayout.setPadding(0, statusBar.top, 0, navBar.bottom)
+            binding.bottomBar.setPadding(
+                navBar.left,
+                0,
+                navBar.right,
+                0
+            )
+            WindowInsetsCompat.CONSUMED
         }
     }
 }
