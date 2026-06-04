@@ -89,6 +89,27 @@ class TextToImageActivity : AppCompatActivity() {
         setupTemplateChips()
         selectSize(ImageSizes.WECHAT)
         selectTemplate(Templates.SIMPLE)
+
+        setupCollapsibleCards()
+    }
+
+    private fun setupCollapsibleCards() {
+        val cards = listOf(
+            Triple(binding.sizeHeader, binding.sizeContent, binding.sizeChevron),
+            Triple(binding.templateHeader, binding.templateContent, binding.templateChevron),
+            Triple(binding.styleHeader, binding.styleContent, binding.styleChevron)
+        )
+        for ((header, content, chevron) in cards) {
+            header.setOnClickListener {
+                if (content.visibility == android.view.View.GONE) {
+                    content.visibility = android.view.View.VISIBLE
+                    chevron.text = "▾"
+                } else {
+                    content.visibility = android.view.View.GONE
+                    chevron.text = "▸"
+                }
+            }
+        }
     }
 
     private fun setupSizeChips() {
@@ -207,7 +228,13 @@ class TextToImageActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.rootLayout) { view, insets ->
             val statusBar = insets.getInsets(WindowInsetsCompat.Type.statusBars())
             val navBar = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-            view.setPadding(0, statusBar.top, 0, navBar.bottom)
+            view.setPadding(0, statusBar.top, 0, 0)
+            binding.bottomBar.setPadding(
+                binding.bottomBar.paddingLeft,
+                binding.bottomBar.paddingTop,
+                binding.bottomBar.paddingRight,
+                navBar.bottom
+            )
             insets
         }
     }
