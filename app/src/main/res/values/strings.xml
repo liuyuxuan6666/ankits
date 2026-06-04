@@ -12,4 +12,7 @@
     <string name="label_canvas_width">画布宽度</string>
     <string name="export_success">已保存到相册</string>
     <string name="export_failed">导出失败</string>
+    <string name="label_size">尺寸</string>
+    <string name="btn_preview">预览</string>
+    <string name="preview_title">预览</string>
 </resources>

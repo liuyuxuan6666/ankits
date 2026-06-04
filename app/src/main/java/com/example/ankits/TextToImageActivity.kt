@@ -1,5 +1,6 @@
 package com.example.ankits
 
+import android.app.Dialog
 import android.content.ContentValues
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
@@ -14,11 +15,8 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.text.Layout
-import android.text.SpannableStringBuilder
-import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
-import android.text.style.StyleSpan
 import android.util.TypedValue
 import android.widget.SeekBar
 import android.widget.Toast
@@ -26,7 +24,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.ankits.databinding.ActivityTextToImageBinding
-import com.google.android.material.button.MaterialButton
+import com.example.ankits.databinding.DialogPreviewBinding
+import com.google.android.material.chip.Chip
 import android.graphics.Typeface
 
 class TextToImageActivity : AppCompatActivity() {
@@ -37,6 +36,7 @@ class TextToImageActivity : AppCompatActivity() {
     private val debounceDelay = 300L
     private val renderRunnable = Runnable { renderPreview() }
     private var currentTemplate: Template = Templates.SIMPLE
+    private var currentSize: ImageSize = ImageSizes.WECHAT
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,22 +48,11 @@ class TextToImageActivity : AppCompatActivity() {
         binding.toolbar.setNavigationOnClickListener { finish() }
 
         binding.fontSizeSeek.progress = 20
-        binding.canvasWidthSeek.progress = 680
         updateFontSizeLabel(binding.fontSizeSeek.progress)
-        updateCanvasWidthLabel(binding.canvasWidthSeek.progress)
 
         binding.fontSizeSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 updateFontSizeLabel(progress)
-                scheduleRender()
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
-
-        binding.canvasWidthSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                updateCanvasWidthLabel(progress)
                 scheduleRender()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -84,27 +73,72 @@ class TextToImageActivity : AppCompatActivity() {
         })
 
         binding.exportBtn.setOnClickListener { exportToGallery() }
+        binding.previewBtn.setOnClickListener { showPreviewDialog() }
 
+        setupSizeChips()
         setupTemplateChips()
+        selectSize(ImageSizes.WECHAT)
         selectTemplate(Templates.SIMPLE)
+    }
+
+    private fun setupSizeChips() {
+        val chipGroup = binding.sizeChips
+        for (size in ImageSizes.ALL) {
+            val chip = Chip(this).apply {
+                text = size.name
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                isAllCaps = false
+                setEnsureMinTouchTargetSize(false)
+                chipMinHeight = (36 * resources.displayMetrics.density).toFloat()
+                chipBackgroundColor = ColorStateList.valueOf(Color.TRANSPARENT)
+                setTextColor(Color.parseColor("#49454F"))
+                chipStrokeWidth = 1f
+                chipStrokeColor = ColorStateList.valueOf(Color.parseColor("#CAC4D0"))
+                chipCornerRadius = 18f
+                setOnClickListener { selectSize(size) }
+            }
+            chipGroup.addView(chip)
+        }
+    }
+
+    private fun selectSize(size: ImageSize) {
+        currentSize = size
+        updateSizeChipStyles()
+        scheduleRender()
+    }
+
+    private fun updateSizeChipStyles() {
+        val chipGroup = binding.sizeChips
+        for (i in 0 until chipGroup.childCount) {
+            val chip = chipGroup.getChildAt(i) as Chip
+            val selected = ImageSizes.ALL[i] == currentSize
+            if (selected) {
+                chip.chipBackgroundColor = ColorStateList.valueOf(Color.parseColor("#1A73E8"))
+                chip.setTextColor(Color.WHITE)
+                chip.chipStrokeWidth = 0f
+            } else {
+                chip.chipBackgroundColor = ColorStateList.valueOf(Color.TRANSPARENT)
+                chip.setTextColor(Color.parseColor("#49454F"))
+                chip.chipStrokeWidth = 1f
+                chip.chipStrokeColor = ColorStateList.valueOf(Color.parseColor("#CAC4D0"))
+            }
+        }
     }
 
     private fun setupTemplateChips() {
         val chipGroup = binding.templateChips
-        for ((index, template) in Templates.ALL.withIndex()) {
-            val chip = MaterialButton(this).apply {
+        for (template in Templates.ALL) {
+            val chip = Chip(this).apply {
                 text = template.name
-                textSize = 13f
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
                 isAllCaps = false
-                setPadding(16, 0, 16, 0)
-                layoutParams = android.widget.LinearLayout.LayoutParams(
-                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-                    (40 * resources.displayMetrics.density).toInt()
-                ).apply {
-                    if (index > 0) leftMargin = (8 * resources.displayMetrics.density).toInt()
-                }
-                strokeWidth = 1
-                cornerRadius = 20
+                setEnsureMinTouchTargetSize(false)
+                chipMinHeight = (40 * resources.displayMetrics.density).toFloat()
+                chipBackgroundColor = ColorStateList.valueOf(Color.TRANSPARENT)
+                setTextColor(Color.parseColor("#49454F"))
+                chipStrokeWidth = 1f
+                chipStrokeColor = ColorStateList.valueOf(Color.parseColor("#CAC4D0"))
+                chipCornerRadius = 20f
                 setOnClickListener { selectTemplate(template) }
             }
             chipGroup.addView(chip)
@@ -129,17 +163,17 @@ class TextToImageActivity : AppCompatActivity() {
     private fun updateChipStyles() {
         val chipGroup = binding.templateChips
         for (i in 0 until chipGroup.childCount) {
-            val chip = chipGroup.getChildAt(i) as MaterialButton
+            val chip = chipGroup.getChildAt(i) as Chip
             val selected = Templates.ALL[i] == currentTemplate
             if (selected) {
-                chip.setBackgroundColor(Color.parseColor("#1A73E8"))
+                chip.chipBackgroundColor = ColorStateList.valueOf(Color.parseColor("#1A73E8"))
                 chip.setTextColor(Color.WHITE)
-                chip.strokeWidth = 0
+                chip.chipStrokeWidth = 0f
             } else {
-                chip.setBackgroundColor(Color.TRANSPARENT)
+                chip.chipBackgroundColor = ColorStateList.valueOf(Color.TRANSPARENT)
                 chip.setTextColor(Color.parseColor("#49454F"))
-                chip.strokeWidth = 1
-                chip.strokeColor = ColorStateList.valueOf(Color.parseColor("#CAC4D0"))
+                chip.chipStrokeWidth = 1f
+                chip.chipStrokeColor = ColorStateList.valueOf(Color.parseColor("#CAC4D0"))
             }
         }
     }
@@ -168,11 +202,6 @@ class TextToImageActivity : AppCompatActivity() {
         binding.fontSizeLabel.text = "${sp}sp"
     }
 
-    private fun updateCanvasWidthLabel(progress: Int) {
-        val px = 400 + progress
-        binding.canvasWidthLabel.text = "${px}px"
-    }
-
     private fun updateSwatch(view: android.view.View, hex: String) {
         try {
             val color = Color.parseColor(hex)
@@ -188,11 +217,10 @@ class TextToImageActivity : AppCompatActivity() {
         val text = binding.textInput.text?.toString() ?: ""
         if (text.isEmpty()) {
             previewBitmap = null
-            binding.previewImage.setImageBitmap(null)
             return
         }
 
-        val canvasWidth = 400 + binding.canvasWidthSeek.progress
+        val canvasWidth = currentSize.width
         val density = resources.displayMetrics.density
         val sections = MarkdownParser.parse(text)
         val template = currentTemplate
@@ -203,8 +231,8 @@ class TextToImageActivity : AppCompatActivity() {
 
         val outerPadding = (template.outerPaddingDp * density).toInt()
 
-        // Calculate total height
-        var totalHeight = outerPadding * 2
+        // top padding
+        var totalHeight = outerPadding
         val sectionRenderers = mutableListOf<SectionRenderer>()
 
         for (section in sections) {
@@ -213,14 +241,16 @@ class TextToImageActivity : AppCompatActivity() {
                 SectionType.SUB -> template.subStyle
                 else -> template.mainStyle
             }
-            val sectionWidth = canvasWidth - outerPadding * 2
+            val sectionWidth = (canvasWidth - outerPadding * 2.3).toInt()
 
             renderer@ val renderer = SectionRenderer()
             renderer.section = section
             renderer.style = style
             renderer.yStart = totalHeight
 
-            val sectionInnerWidth = sectionWidth - ((style.paddingLeftDp + style.paddingRightDp) * density).toInt()
+            val padLeftPx = (style.paddingLeftDp * density).toInt()
+            val padRightPx = (style.paddingRightDp * density).toInt()
+            val sectionInnerWidth = sectionWidth - padLeftPx - padRightPx
             var sectionHeight = 0
             sectionHeight += (style.paddingTopDp * density).toInt()
 
@@ -278,6 +308,7 @@ class TextToImageActivity : AppCompatActivity() {
             totalHeight += sectionHeight
         }
 
+        // bottom padding = same as left/right
         totalHeight += outerPadding
 
         if (totalHeight <= 0) return
@@ -285,10 +316,8 @@ class TextToImageActivity : AppCompatActivity() {
         previewBitmap = Bitmap.createBitmap(canvasWidth, totalHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(previewBitmap!!)
 
-        // Draw canvas background
         canvas.drawColor(template.canvasBg)
 
-        // Draw each section
         for (renderer in sectionRenderers) {
             val style = renderer.style!!
             val x = outerPadding
@@ -296,7 +325,6 @@ class TextToImageActivity : AppCompatActivity() {
             val w = renderer.sectionWidth
             val h = renderer.sectionHeight - if (renderer != sectionRenderers.lastOrNull()) (template.sectionGapDp * density).toInt() else 0
 
-            // Section background
             if (style.bgColor != Color.TRANSPARENT && style.bgColor != 0) {
                 val bgPaint = Paint().apply {
                     color = style.bgColor
@@ -310,7 +338,6 @@ class TextToImageActivity : AppCompatActivity() {
                 }
             }
 
-            // Accent bar
             if (style.accentWidthDp > 0f) {
                 val accentW = style.accentWidthDp * density
                 val accentPaint = Paint().apply {
@@ -320,7 +347,6 @@ class TextToImageActivity : AppCompatActivity() {
                 canvas.drawRect(RectF(x.toFloat(), y.toFloat(), x + accentW, (y + h).toFloat()), accentPaint)
             }
 
-            // Divider at bottom
             if (style.dividerColor != 0) {
                 val divPaint = Paint().apply {
                     color = style.dividerColor
@@ -329,7 +355,6 @@ class TextToImageActivity : AppCompatActivity() {
                 canvas.drawLine(x.toFloat(), (y + h).toFloat(), (x + w).toFloat(), (y + h).toFloat(), divPaint)
             }
 
-            // Content
             val padLeft = (style.paddingLeftDp * density).toInt()
             var cy = y + (style.paddingTopDp * density).toInt()
 
@@ -365,8 +390,34 @@ class TextToImageActivity : AppCompatActivity() {
                 canvas.restore()
             }
         }
+    }
 
-        binding.previewImage.setImageBitmap(previewBitmap)
+    private fun showPreviewDialog() {
+        val bitmap = previewBitmap
+        if (bitmap == null) {
+            Toast.makeText(this, "请先输入文本", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val dialogBinding = DialogPreviewBinding.inflate(layoutInflater)
+        dialog.setContentView(dialogBinding.root)
+
+        dialogBinding.previewToolbar.setNavigationOnClickListener { dialog.dismiss() }
+
+        dialogBinding.previewImageView.post {
+            val screenWidth = dialogBinding.previewImageView.width
+            if (screenWidth > 0 && bitmap.width > 0) {
+                val scale = screenWidth.toFloat() / bitmap.width.toFloat()
+                val scaledHeight = (bitmap.height * scale).toInt()
+                val scaled = Bitmap.createScaledBitmap(bitmap, screenWidth, scaledHeight, true)
+                dialogBinding.previewImageView.setImageBitmap(scaled)
+            } else {
+                dialogBinding.previewImageView.setImageBitmap(bitmap)
+            }
+        }
+
+        dialog.show()
     }
 
     private fun exportToGallery() {
