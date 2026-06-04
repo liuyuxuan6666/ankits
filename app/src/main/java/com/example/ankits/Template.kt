@@ -30,7 +30,8 @@ data class Template(
     val subStyle: SectionStyle,
     val sectionGapDp: Float = 12f,
     val outerPaddingDp: Float = 16f,
-    val canvasCornerRadiusDp: Float = 0f
+    val canvasCornerRadiusDp: Float = 0f,
+    val bodyLineSpacing: Float = 1.3f
 )
 
 object Templates {

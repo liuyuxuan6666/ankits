@@ -37,6 +37,7 @@ class TextToImageActivity : AppCompatActivity() {
     private val renderRunnable = Runnable { renderPreview() }
     private var currentTemplate: Template = Templates.SIMPLE
     private var currentSize: ImageSize = ImageSizes.WECHAT
+    private var currentLineSpacing: Float = 1.3f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,6 +54,15 @@ class TextToImageActivity : AppCompatActivity() {
         binding.fontSizeSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 updateFontSizeLabel(progress)
+                scheduleRender()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
+        binding.lineSpacingSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                updateLineSpacingLabel(progress)
                 scheduleRender()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -156,6 +166,11 @@ class TextToImageActivity : AppCompatActivity() {
         binding.fontSizeSeek.progress = progress
         updateFontSizeLabel(progress)
 
+        val ls = template.bodyLineSpacing
+        val lsProgress = ((ls - 0.8f) / 0.025f).toInt().coerceIn(0, 88)
+        binding.lineSpacingSeek.progress = lsProgress
+        updateLineSpacingLabel(lsProgress)
+
         updateChipStyles()
         scheduleRender()
     }
@@ -200,6 +215,12 @@ class TextToImageActivity : AppCompatActivity() {
     private fun updateFontSizeLabel(progress: Int) {
         val sp = 20 + progress
         binding.fontSizeLabel.text = "${sp}sp"
+    }
+
+    private fun updateLineSpacingLabel(progress: Int) {
+        val mult = 0.8f + progress * 0.025f
+        currentLineSpacing = mult
+        binding.lineSpacingLabel.text = String.format("%.2fx", mult)
     }
 
     private fun updateSwatch(view: android.view.View, hex: String) {
@@ -284,10 +305,10 @@ class TextToImageActivity : AppCompatActivity() {
                 bodyLayout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     StaticLayout.Builder.obtain(section.body, 0, section.body.length, bodyPaint, sectionInnerWidth)
                         .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-                        .setLineSpacing(0f, 1.3f).build()
+                        .setLineSpacing(0f, currentLineSpacing).build()
                 } else {
                     @Suppress("DEPRECATION")
-                    StaticLayout(section.body, bodyPaint, sectionInnerWidth, Layout.Alignment.ALIGN_NORMAL, 1.3f, 0f, false)
+                    StaticLayout(section.body, bodyPaint, sectionInnerWidth, Layout.Alignment.ALIGN_NORMAL, currentLineSpacing, 0f, false)
                 }
                 val gap = if (titleLayout != null) (6f * density).toInt() else 0
                 sectionHeight += gap + bodyLayout.height

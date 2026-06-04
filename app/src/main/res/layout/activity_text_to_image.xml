@@ -296,6 +296,43 @@
 
                     </LinearLayout>
 
+                    <!-- Line Spacing -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_line_spacing"
+                        android:textSize="12sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/on_surface_variant"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="2dp"
+                        android:letterSpacing="0.05" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <SeekBar
+                            android:id="@+id/lineSpacingSeek"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:max="88"
+                            android:progress="20" />
+
+                        <TextView
+                            android:id="@+id/lineSpacingLabel"
+                            android:layout_width="44dp"
+                            android:layout_height="wrap_content"
+                            android:gravity="end"
+                            android:text="1.30x"
+                            android:textSize="13sp"
+                            android:textColor="@color/on_surface" />
+
+                    </LinearLayout>
+
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>

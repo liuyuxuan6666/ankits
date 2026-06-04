@@ -15,4 +15,5 @@
     <string name="label_size">尺寸</string>
     <string name="btn_preview">预览</string>
     <string name="preview_title">预览</string>
+    <string name="label_line_spacing">行间距</string>
 </resources>
