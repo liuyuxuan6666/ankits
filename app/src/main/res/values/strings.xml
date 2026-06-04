@@ -78,4 +78,7 @@
     <string name="ocr_btn_unmerge">恢复换行</string>
     <string name="ocr_recognize_failed">识别失败，请重试</string>
     <string name="ocr_decode_failed">图片加载失败</string>
+    <string name="settings_title">设置</string>
+    <string name="settings_back">返回</string>
+    <string name="settings_feature_toggles">功能开关</string>
 </resources>

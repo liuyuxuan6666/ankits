@@ -29,51 +29,12 @@ class MainActivity : AppCompatActivity() {
 
         handleWindowInsets()
 
-        val allTools = listOf(
-            Tool(
-                name = getString(R.string.tool_text_to_image),
-                desc = getString(R.string.tool_text_to_image_desc),
-                icon = R.drawable.ic_text_to_image,
-                targetActivity = TextToImageActivity::class.java
-            ),
-            Tool(
-                name = getString(R.string.tool_metronome),
-                desc = getString(R.string.tool_metronome_desc),
-                icon = R.drawable.ic_metronome,
-                targetActivity = MetronomeActivity::class.java
-            ),
-            Tool(
-                name = getString(R.string.tool_tuner),
-                desc = getString(R.string.tool_tuner_desc),
-                icon = R.drawable.ic_tuner,
-                targetActivity = TunerActivity::class.java
-            ),
-            Tool(
-                name = getString(R.string.tool_speech_to_text),
-                desc = getString(R.string.tool_speech_to_text_desc),
-                icon = R.drawable.ic_speech_to_text,
-                targetActivity = SpeechToTextActivity::class.java
-            ),
-            Tool(
-                name = getString(R.string.tool_ocr),
-                desc = getString(R.string.tool_ocr_desc),
-                icon = R.drawable.ic_ocr,
-                targetActivity = OcrActivity::class.java
-            ),
-            Tool(
-                name = getString(R.string.tool_sleep_aid),
-                desc = getString(R.string.tool_sleep_aid_desc),
-                icon = R.drawable.ic_sleep_aid,
-                targetActivity = SleepAidActivity::class.java
-            )
-        )
-
-        toolAdapter = ToolAdapter(allTools)
+        toolAdapter = ToolAdapter(getEnabledTools(allTools))
         binding.toolList.layoutManager = LinearLayoutManager(this)
         binding.toolList.adapter = toolAdapter
 
         binding.settingsBtn.setOnClickListener {
-            // TODO: open settings
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
 
         binding.tabFavorites.setOnClickListener { selectTab(true) }
@@ -100,6 +61,61 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        toolAdapter.updateTools(getEnabledTools(allTools))
+    }
+
+    private fun getEnabledTools(tools: List<Tool>): List<Tool> {
+        return tools.filter { SettingsManager.isToolEnabled(this, it.key) }
+    }
+
+    private val allTools: List<Tool>
+        get() = listOf(
+            Tool(
+                key = "text_to_image",
+                name = getString(R.string.tool_text_to_image),
+                desc = getString(R.string.tool_text_to_image_desc),
+                icon = R.drawable.ic_text_to_image,
+                targetActivity = TextToImageActivity::class.java
+            ),
+            Tool(
+                key = "metronome",
+                name = getString(R.string.tool_metronome),
+                desc = getString(R.string.tool_metronome_desc),
+                icon = R.drawable.ic_metronome,
+                targetActivity = MetronomeActivity::class.java
+            ),
+            Tool(
+                key = "tuner",
+                name = getString(R.string.tool_tuner),
+                desc = getString(R.string.tool_tuner_desc),
+                icon = R.drawable.ic_tuner,
+                targetActivity = TunerActivity::class.java
+            ),
+            Tool(
+                key = "speech_to_text",
+                name = getString(R.string.tool_speech_to_text),
+                desc = getString(R.string.tool_speech_to_text_desc),
+                icon = R.drawable.ic_speech_to_text,
+                targetActivity = SpeechToTextActivity::class.java
+            ),
+            Tool(
+                key = "ocr",
+                name = getString(R.string.tool_ocr),
+                desc = getString(R.string.tool_ocr_desc),
+                icon = R.drawable.ic_ocr,
+                targetActivity = OcrActivity::class.java
+            ),
+            Tool(
+                key = "sleep_aid",
+                name = getString(R.string.tool_sleep_aid),
+                desc = getString(R.string.tool_sleep_aid_desc),
+                icon = R.drawable.ic_sleep_aid,
+                targetActivity = SleepAidActivity::class.java
+            )
+        )
+
     private fun handleWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.rootLayout) { _, insets ->
             val statusBar = insets.getInsets(WindowInsetsCompat.Type.statusBars())
@@ -117,6 +133,7 @@ class MainActivity : AppCompatActivity() {
 }
 
 data class Tool(
+    val key: String,
     val name: String,
     val desc: String,
     val icon: Int,
@@ -124,7 +141,7 @@ data class Tool(
 )
 
 class ToolAdapter(
-    private val tools: List<Tool>
+    private var tools: List<Tool>
 ) : RecyclerView.Adapter<ToolAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -151,4 +168,9 @@ class ToolAdapter(
     }
 
     override fun getItemCount() = tools.size
+
+    fun updateTools(newTools: List<Tool>) {
+        tools = newTools
+        notifyDataSetChanged()
+    }
 }
