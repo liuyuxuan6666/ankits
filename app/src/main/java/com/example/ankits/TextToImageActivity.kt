@@ -283,10 +283,38 @@ class TextToImageActivity : AppCompatActivity() {
         var totalHeight = outerPadding
         val sectionRenderers = mutableListOf<SectionRenderer>()
 
+        val blankLineHeight = (TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP, bodySizeSp, resources.displayMetrics
+        ) * currentLineSpacing).toInt()
+
         for (section in sections) {
+            // Blanks and HRs are handled specially — no mainStyle needed
+            if (section.type == SectionType.BLANK) {
+                totalHeight += blankLineHeight
+                if (section != sections.lastOrNull()) {
+                    totalHeight += (template.sectionGapDp * density).toInt()
+                }
+                continue
+            }
+
+            if (section.type == SectionType.HR) {
+                totalHeight += (20f * density).toInt()
+                if (section != sections.lastOrNull()) {
+                    totalHeight += (template.sectionGapDp * density).toInt()
+                }
+                continue
+            }
+
             val style = when (section.type) {
                 SectionType.HERO -> template.heroStyle
                 SectionType.SUB -> template.subStyle
+                SectionType.H3 -> template.subStyle.copy(
+                    titleSizeSp = template.subStyle.titleSizeSp - 3f
+                )
+                SectionType.CODE -> template.mainStyle
+                SectionType.QUOTE -> template.mainStyle
+                SectionType.LIST_ITEM -> template.mainStyle
+                SectionType.BODY -> template.mainStyle
                 else -> template.mainStyle
             }
             val sectionWidth = (canvasWidth - outerPadding * 2.3).toInt()
@@ -295,10 +323,20 @@ class TextToImageActivity : AppCompatActivity() {
             renderer.section = section
             renderer.style = style
             renderer.yStart = totalHeight
+            renderer.blankLineH = blankLineHeight
 
             val padLeftPx = (style.paddingLeftDp * density).toInt()
             val padRightPx = (style.paddingRightDp * density).toInt()
-            val sectionInnerWidth = sectionWidth - padLeftPx - padRightPx
+            var sectionInnerWidth = sectionWidth - padLeftPx - padRightPx
+
+            // LIST_ITEM and QUOTE: extra indent for bullet/accent
+            val indentPx = when (section.type) {
+                SectionType.LIST_ITEM -> (20f * density).toInt()
+                SectionType.QUOTE -> (16f * density).toInt()
+                else -> 0
+            }
+            sectionInnerWidth -= indentPx
+
             var sectionHeight = 0
             sectionHeight += (style.paddingTopDp * density).toInt()
 
@@ -324,18 +362,22 @@ class TextToImageActivity : AppCompatActivity() {
 
             var bodyLayout: StaticLayout? = null
             if (section.body.isNotEmpty()) {
+                val isCode = section.type == SectionType.CODE
                 val bodyPaint = TextPaint().apply {
                     color = bodyTextColor
-                    textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, bodySizeSp, resources.displayMetrics)
+                    textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP,
+                        if (isCode) bodySizeSp - 1f else bodySizeSp, resources.displayMetrics)
                     isAntiAlias = true
+                    if (isCode) typeface = Typeface.MONOSPACE
                 }
                 bodyLayout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     StaticLayout.Builder.obtain(section.body, 0, section.body.length, bodyPaint, sectionInnerWidth)
                         .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-                        .setLineSpacing(0f, currentLineSpacing).build()
+                        .setLineSpacing(0f, if (isCode) 1.1f else currentLineSpacing).build()
                 } else {
                     @Suppress("DEPRECATION")
-                    StaticLayout(section.body, bodyPaint, sectionInnerWidth, Layout.Alignment.ALIGN_NORMAL, currentLineSpacing, 0f, false)
+                    StaticLayout(section.body, bodyPaint, sectionInnerWidth, Layout.Alignment.ALIGN_NORMAL,
+                        if (isCode) 1.1f else currentLineSpacing, 0f, false)
                 }
                 val gap = if (titleLayout != null) (6f * density).toInt() else 0
                 sectionHeight += gap + bodyLayout.height
@@ -351,6 +393,7 @@ class TextToImageActivity : AppCompatActivity() {
             renderer.bodyLayout = bodyLayout
             renderer.sectionHeight = sectionHeight
             renderer.sectionWidth = sectionWidth
+            renderer.indentPx = indentPx
 
             sectionRenderers.add(renderer)
             totalHeight += sectionHeight
@@ -367,15 +410,28 @@ class TextToImageActivity : AppCompatActivity() {
         canvas.drawColor(template.canvasBg)
 
         for (renderer in sectionRenderers) {
+            val section = renderer.section ?: continue
             val style = renderer.style!!
             val x = outerPadding
             var y = renderer.yStart
             val w = renderer.sectionWidth
             val h = renderer.sectionHeight - if (renderer != sectionRenderers.lastOrNull()) (template.sectionGapDp * density).toInt() else 0
 
-            if (style.bgColor != Color.TRANSPARENT && style.bgColor != 0) {
+            // CODE background
+            val sectionBgColor: Int = when {
+                section.type == SectionType.CODE -> {
+                    val hsv = FloatArray(3)
+                    Color.colorToHSV(bodyColor, hsv)
+                    hsv[2] = (hsv[2] * 0.92f).coerceAtLeast(0f)
+                    Color.HSVToColor(hsv)
+                }
+                style.bgColor != Color.TRANSPARENT && style.bgColor != 0 -> style.bgColor
+                else -> 0
+            }
+
+            if (sectionBgColor != 0) {
                 val bgPaint = Paint().apply {
-                    color = style.bgColor
+                    color = sectionBgColor
                     isAntiAlias = true
                 }
                 if (style.cornerRadiusDp > 0f) {
@@ -395,6 +451,21 @@ class TextToImageActivity : AppCompatActivity() {
                 canvas.drawRect(RectF(x.toFloat(), y.toFloat(), x + accentW, (y + h).toFloat()), accentPaint)
             }
 
+            // QUOTE accent bar
+            if (section.type == SectionType.QUOTE) {
+                val quoteAccentW = 4f * density
+                val quoteAccentPaint = Paint().apply {
+                    color = Color.parseColor("#1A73E8")
+                    isAntiAlias = true
+                }
+                val padTop = (style.paddingTopDp * density)
+                val padBot = (style.paddingBottomDp * density)
+                canvas.drawRoundRect(
+                    RectF(x.toFloat(), y + padTop, x + quoteAccentW, y + h - padBot),
+                    quoteAccentW / 2f, quoteAccentW / 2f, quoteAccentPaint
+                )
+            }
+
             if (style.dividerColor != 0) {
                 val divPaint = Paint().apply {
                     color = style.dividerColor
@@ -404,6 +475,22 @@ class TextToImageActivity : AppCompatActivity() {
             }
 
             val padLeft = (style.paddingLeftDp * density).toInt()
+
+            // LIST_ITEM bullet
+            if (section.type == SectionType.LIST_ITEM && section.meta.isNotEmpty()) {
+                val bulletPaint = TextPaint().apply {
+                    color = bodyTextColor
+                    textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, bodySizeSp, resources.displayMetrics)
+                    isAntiAlias = true
+                }
+                val bulletY = y + (style.paddingTopDp * density)
+                canvas.save()
+                canvas.translate((x + padLeft).toFloat(), bulletY)
+                val bulletText = if (section.meta.length <= 3) "${section.meta} " else "• "
+                canvas.drawText(bulletText, 0f, -bulletPaint.ascent(), bulletPaint)
+                canvas.restore()
+            }
+
             var cy = y + (style.paddingTopDp * density).toInt()
 
             renderer.titleLayout?.let { titleLayout ->
@@ -412,9 +499,9 @@ class TextToImageActivity : AppCompatActivity() {
                     val titleW = titleLayout.width + titlePad * 2
                     val titleH = titleLayout.height + titlePad * 2
                     val rect = RectF(
-                        (x + padLeft - titlePad).toFloat(),
+                        (x + padLeft + renderer.indentPx - titlePad).toFloat(),
                         (cy - titlePad).toFloat(),
-                        (x + padLeft - titlePad + titleW).toFloat(),
+                        (x + padLeft + renderer.indentPx - titlePad + titleW).toFloat(),
                         (cy - titlePad + titleH).toFloat()
                     )
                     val radius = style.titleCornerRadiusDp * density
@@ -423,7 +510,7 @@ class TextToImageActivity : AppCompatActivity() {
                     cy += titlePad
                 }
                 canvas.save()
-                canvas.translate((x + padLeft).toFloat(), cy.toFloat())
+                canvas.translate((x + padLeft + renderer.indentPx).toFloat(), cy.toFloat())
                 titleLayout.draw(canvas)
                 canvas.restore()
                 cy += titleLayout.height + if (style.titleCornerRadiusDp > 0f) (8f * density).toInt() else 0
@@ -433,7 +520,7 @@ class TextToImageActivity : AppCompatActivity() {
                 val gap = if (renderer.titleLayout != null) (6f * density).toInt() else 0
                 cy += gap
                 canvas.save()
-                canvas.translate((x + padLeft).toFloat(), cy.toFloat())
+                canvas.translate((x + padLeft + renderer.indentPx).toFloat(), cy.toFloat())
                 bodyLayout.draw(canvas)
                 canvas.restore()
             }
@@ -512,6 +599,8 @@ class TextToImageActivity : AppCompatActivity() {
         var sectionWidth: Int = 0
         var titleLayout: StaticLayout? = null
         var bodyLayout: StaticLayout? = null
+        var blankLineH: Int = 0
+        var indentPx: Int = 0
     }
 }
 
