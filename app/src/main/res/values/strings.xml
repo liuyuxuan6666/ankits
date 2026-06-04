@@ -18,4 +18,7 @@
     <string name="label_line_spacing">行间距</string>
     <string name="tool_metronome">电子节拍器</string>
     <string name="tool_metronome_desc">精确节拍器，支持拍号调节、Tap Tempo 和重/弱音区分</string>
+    <string name="tab_favorites">收藏夹</string>
+    <string name="tab_tools">工具</string>
+    <string name="settings">设置</string>
 </resources>
