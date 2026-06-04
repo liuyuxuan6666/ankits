@@ -185,4 +185,14 @@
     <string name="notes_export_failed">导出失败</string>
     <string name="notes_imported">已导入 %1$d 条笔记</string>
     <string name="notes_selected_count">已选 %1$d 条</string>
+    <string name="tool_image_stitch">长图拼接</string>
+    <string name="tool_image_stitch_desc">多图拼接为长图，支持接缝调节</string>
+    <string name="stitch_images">已选图片</string>
+    <string name="stitch_add_images">添加图片</string>
+    <string name="stitch_orientation">排列方向</string>
+    <string name="stitch_vertical">竖向</string>
+    <string name="stitch_horizontal">横向</string>
+    <string name="stitch_seam_adjust">接缝调节</string>
+    <string name="stitch_empty_hint">点击「添加图片」选择要拼接的图片</string>
+    <string name="stitch_no_images">请先添加图片</string>
 </resources>
