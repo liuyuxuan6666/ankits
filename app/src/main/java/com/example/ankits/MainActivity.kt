@@ -113,6 +113,13 @@ class MainActivity : AppCompatActivity() {
                 desc = getString(R.string.tool_sleep_aid_desc),
                 icon = R.drawable.ic_sleep_aid,
                 targetActivity = SleepAidActivity::class.java
+            ),
+            Tool(
+                key = "pomodoro",
+                name = getString(R.string.tool_pomodoro),
+                desc = getString(R.string.tool_pomodoro_desc),
+                icon = R.drawable.ic_pomodoro,
+                targetActivity = PomodoroActivity::class.java
             )
         )
 

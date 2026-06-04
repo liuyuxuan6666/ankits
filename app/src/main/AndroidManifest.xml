@@ -65,6 +65,18 @@
             android:theme="@style/Theme.Ankits"
             android:parentActivityName=".MainActivity" />
 
+        <activity
+            android:name=".PomodoroActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Ankits"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".PomodoroSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Ankits"
+            android:parentActivityName=".PomodoroActivity" />
+
         <service
             android:name=".MetronomeService"
             android:exported="false"

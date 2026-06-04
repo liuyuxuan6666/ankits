@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:orientation="vertical">
+
+    <!-- Top Bar -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp">
+
+        <ImageView
+            android:id="@+id/backBtn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/settings_back"
+            android:focusable="true"
+            android:padding="8dp"
+            android:src="?attr/homeAsUpIndicator" />
+
+        <TextView
+            android:id="@+id/toolbarTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/tool_pomodoro"
+            android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+            android:textColor="@color/on_surface" />
+
+        <ImageView
+            android:id="@+id/settingsBtn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/settings"
+            android:focusable="true"
+            android:padding="8dp"
+            android:src="@drawable/ic_settings" />
+
+    </LinearLayout>
+
+    <!-- Timer Area (expands when running) -->
+    <FrameLayout
+        android:id="@+id/timerContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0">
+
+        <com.example.ankits.PomodoroTimerView
+            android:id="@+id/timerView"
+            android:layout_width="260dp"
+            android:layout_height="260dp"
+            android:layout_gravity="center" />
+
+    </FrameLayout>
+
+    <!-- Control Buttons -->
+    <LinearLayout
+        android:id="@+id/controlButtons"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/pauseResumeBtn"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="80dp"
+            android:layout_height="48dp"
+            android:text="@string/pomodoro_pause"
+            android:textSize="14sp"
+            android:visibility="gone"
+            app:cornerRadius="24dp"
+            app:strokeColor="@color/outline" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/stopBtn"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="80dp"
+            android:layout_height="48dp"
+            android:text="@string/pomodoro_stop"
+            android:textSize="14sp"
+            android:layout_marginStart="16dp"
+            android:visibility="gone"
+            app:cornerRadius="24dp"
+            app:strokeColor="@color/error" />
+
+    </LinearLayout>
+
+    <!-- Settings Cards (hidden when running) -->
+    <ScrollView
+        android:id="@+id/settingsScrollView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="24dp">
+
+            <!-- Session Type Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/sessionTypeCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardElevation="0dp"
+                app:cardCornerRadius="20dp"
+                app:cardBackgroundColor="@color/card_background"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/outline_variant">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/pomodoro_session_type"
+                        android:textSize="14sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/on_surface" />
+
+                    <RadioGroup
+                        android:id="@+id/sessionTypeGroup"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/radioWork"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:checked="true"
+                            android:text="@string/pomodoro_work"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/radioShortBreak"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/pomodoro_short_break"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/radioLongBreak"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/pomodoro_long_break"
+                            android:textSize="13sp" />
+
+                    </RadioGroup>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Duration Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/durationCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                app:cardElevation="0dp"
+                app:cardCornerRadius="20dp"
+                app:cardBackgroundColor="@color/card_background"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/outline_variant">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:id="@+id/durationHeader"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:background="?attr/selectableItemBackground">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/pomodoro_duration"
+                            android:textSize="14sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:textColor="@color/on_surface" />
+
+                        <TextView
+                            android:id="@+id/durationChevron"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="▾"
+                            android:textSize="14sp"
+                            android:textColor="@color/on_surface_variant" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/durationContent"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="8dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/pomodoro_work_duration"
+                                android:textSize="13sp"
+                                android:textColor="@color/on_surface" />
+
+                            <ImageView
+                                android:id="@+id/workMinusBtn"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:padding="6dp"
+                                android:src="@drawable/ic_back" />
+
+                            <TextView
+                                android:id="@+id/workDurationText"
+                                android:layout_width="48dp"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="25 min"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium"
+                                android:textColor="@color/on_surface" />
+
+                            <ImageView
+                                android:id="@+id/workPlusBtn"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:padding="6dp"
+                                android:src="@drawable/ic_back"
+                                android:scaleX="-1" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/pomodoro_short_break_duration"
+                                android:textSize="13sp"
+                                android:textColor="@color/on_surface" />
+
+                            <ImageView
+                                android:id="@+id/shortBreakMinusBtn"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:padding="6dp"
+                                android:src="@drawable/ic_back" />
+
+                            <TextView
+                                android:id="@+id/shortBreakDurationText"
+                                android:layout_width="48dp"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="5 min"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium"
+                                android:textColor="@color/on_surface" />
+
+                            <ImageView
+                                android:id="@+id/shortBreakPlusBtn"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:padding="6dp"
+                                android:src="@drawable/ic_back"
+                                android:scaleX="-1" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/pomodoro_long_break_duration"
+                                android:textSize="13sp"
+                                android:textColor="@color/on_surface" />
+
+                            <ImageView
+                                android:id="@+id/longBreakMinusBtn"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:padding="6dp"
+                                android:src="@drawable/ic_back" />
+
+                            <TextView
+                                android:id="@+id/longBreakDurationText"
+                                android:layout_width="48dp"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="15 min"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium"
+                                android:textColor="@color/on_surface" />
+
+                            <ImageView
+                                android:id="@+id/longBreakPlusBtn"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:padding="6dp"
+                                android:src="@drawable/ic_back"
+                                android:scaleX="-1" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/pomodoro_long_break_interval"
+                                android:textSize="13sp"
+                                android:textColor="@color/on_surface" />
+
+                            <ImageView
+                                android:id="@+id/intervalMinusBtn"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:padding="6dp"
+                                android:src="@drawable/ic_back" />
+
+                            <TextView
+                                android:id="@+id/intervalText"
+                                android:layout_width="48dp"
+                                android:layout_height="wrap_content"
+                                android:gravity="center"
+                                android:text="4"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif-medium"
+                                android:textColor="@color/on_surface" />
+
+                            <ImageView
+                                android:id="@+id/intervalPlusBtn"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:padding="6dp"
+                                android:src="@drawable/ic_back"
+                                android:scaleX="-1" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Reminder & Lock Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/reminderCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                app:cardElevation="0dp"
+                app:cardCornerRadius="20dp"
+                app:cardBackgroundColor="@color/card_background"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/outline_variant">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/pomodoro_reminder_lock"
+                        android:textSize="14sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/on_surface" />
+
+                    <CheckBox
+                        android:id="@+id/vibrateToggle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:checked="true"
+                        android:text="@string/pomodoro_vibrate"
+                        android:textSize="13sp"
+                        android:textColor="@color/on_surface"
+                        android:buttonTint="@color/primary" />
+
+                    <CheckBox
+                        android:id="@+id/soundToggle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:text="@string/pomodoro_sound"
+                        android:textSize="13sp"
+                        android:textColor="@color/on_surface"
+                        android:buttonTint="@color/primary" />
+
+                    <CheckBox
+                        android:id="@+id/lockScreenToggle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/pomodoro_lock_screen"
+                        android:textSize="13sp"
+                        android:textColor="@color/on_surface"
+                        android:buttonTint="@color/primary" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Start Button (below all settings) -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/startBtn"
+                android:layout_width="200dp"
+                android:layout_height="56dp"
+                android:layout_gravity="center"
+                android:layout_marginTop="20dp"
+                android:text="@string/pomodoro_start"
+                android:textSize="16sp"
+                app:cornerRadius="28dp" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</LinearLayout>
