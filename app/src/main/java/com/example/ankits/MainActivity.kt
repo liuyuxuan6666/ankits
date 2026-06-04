@@ -120,6 +120,13 @@ class MainActivity : AppCompatActivity() {
                 desc = getString(R.string.tool_pomodoro_desc),
                 icon = R.drawable.ic_pomodoro,
                 targetActivity = PomodoroActivity::class.java
+            ),
+            Tool(
+                key = "chat",
+                name = getString(R.string.tool_chat),
+                desc = getString(R.string.tool_chat_desc),
+                icon = R.drawable.ic_chat,
+                targetActivity = ChatActivity::class.java
             )
         )
 

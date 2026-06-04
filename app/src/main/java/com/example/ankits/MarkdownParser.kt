@@ -143,6 +143,52 @@ object MarkdownParser {
         return sections
     }
 
+    fun formatInline(text: String): SpannableStringBuilder {
+        return parseInline(text)
+    }
+
+    fun formatMessage(text: String): SpannableStringBuilder {
+        val sections = parse(text)
+        val result = SpannableStringBuilder()
+        for ((index, section) in sections.withIndex()) {
+            when (section.type) {
+                SectionType.CODE -> {
+                    val codeStart = result.length
+                    result.append(section.body)
+                    result.setSpan(TypefaceSpan("monospace"), codeStart, result.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    result.append("\n")
+                }
+                SectionType.LIST_ITEM -> {
+                    result.append("${section.meta} ")
+                    result.append(section.body)
+                    result.append("\n")
+                }
+                SectionType.QUOTE -> {
+                    result.append("> ")
+                    result.append(section.body)
+                    result.append("\n")
+                }
+                SectionType.HR -> {
+                    result.append("---\n")
+                }
+                SectionType.BLANK -> {
+                    result.append("\n")
+                }
+                else -> {
+                    if (section.title != null) {
+                        val titleStart = result.length
+                        result.append(section.title)
+                        result.setSpan(StyleSpan(Typeface.BOLD), titleStart, result.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        result.append("\n")
+                    }
+                    result.append(section.body)
+                    if (index < sections.size - 1) result.append("\n")
+                }
+            }
+        }
+        return result
+    }
+
     private fun parseInline(text: String): SpannableStringBuilder {
         val result = SpannableStringBuilder()
         var i = 0

@@ -13,6 +13,30 @@ object SettingsManager {
         getPrefs(context).edit().putBoolean(toolKey, enabled).apply()
     }
 
+    fun getString(context: Context, key: String, default: String = ""): String {
+        return getPrefs(context).getString(key, default) ?: default
+    }
+
+    fun setString(context: Context, key: String, value: String) {
+        getPrefs(context).edit().putString(key, value).apply()
+    }
+
+    fun getInt(context: Context, key: String, default: Int = 0): Int {
+        return getPrefs(context).getInt(key, default)
+    }
+
+    fun setInt(context: Context, key: String, value: Int) {
+        getPrefs(context).edit().putInt(key, value).apply()
+    }
+
+    fun getBool(context: Context, key: String, default: Boolean = true): Boolean {
+        return getPrefs(context).getBoolean(key, default)
+    }
+
+    fun setBool(context: Context, key: String, value: Boolean) {
+        getPrefs(context).edit().putBoolean(key, value).apply()
+    }
+
     private fun getPrefs(context: Context) =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 }
