@@ -18,4 +18,5 @@
     <color name="error">#D93025</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="tool_icon_default">#D3E3FD</color>
 </resources>

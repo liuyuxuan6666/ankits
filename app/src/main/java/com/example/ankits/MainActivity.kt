@@ -34,6 +34,12 @@ class MainActivity : AppCompatActivity() {
                     desc = getString(R.string.tool_text_to_image_desc),
                     icon = R.drawable.ic_text_to_image,
                     targetActivity = TextToImageActivity::class.java
+                ),
+                Tool(
+                    name = getString(R.string.tool_metronome),
+                    desc = getString(R.string.tool_metronome_desc),
+                    icon = R.drawable.ic_metronome,
+                    targetActivity = MetronomeActivity::class.java
                 )
             )
         )

@@ -16,4 +16,6 @@
     <string name="btn_preview">预览</string>
     <string name="preview_title">预览</string>
     <string name="label_line_spacing">行间距</string>
+    <string name="tool_metronome">电子节拍器</string>
+    <string name="tool_metronome_desc">精确节拍器，支持拍号调节、Tap Tempo 和重/弱音区分</string>
 </resources>
