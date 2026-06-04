@@ -67,6 +67,17 @@
     <string name="sleep_aid_clear_habits">清除已保存的习惯</string>
     <string name="sleep_aid_habits_cleared">习惯已清除</string>
     <string name="sleep_aid_no_habits">尚未保存习惯，当前使用默认设置</string>
+    <string name="ocr_hint_empty">选择图片或拍照开始识别</string>
+    <string name="ocr_btn_gallery">相册选取</string>
+    <string name="ocr_btn_camera">拍照识别</string>
+    <string name="ocr_btn_copy">复制结果</string>
+    <string name="ocr_progress">正在识别…</string>
+    <string name="ocr_no_text">未识别到文字</string>
+    <string name="ocr_copy_success">已复制到剪贴板</string>
+    <string name="ocr_btn_merge">合并一段</string>
+    <string name="ocr_btn_unmerge">恢复换行</string>
+    <string name="ocr_recognize_failed">识别失败，请重试</string>
+    <string name="ocr_decode_failed">图片加载失败</string>
     <string name="settings_title">设置</string>
     <string name="settings_back">返回</string>
     <string name="settings_feature_toggles">功能开关</string>
