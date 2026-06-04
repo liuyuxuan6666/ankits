@@ -54,6 +54,12 @@
             android:parentActivityName=".MainActivity" />
 
         <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Ankits"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
             android:name=".SleepAidActivity"
             android:exported="false"
             android:theme="@style/Theme.Ankits"

@@ -67,4 +67,7 @@
     <string name="sleep_aid_clear_habits">清除已保存的习惯</string>
     <string name="sleep_aid_habits_cleared">习惯已清除</string>
     <string name="sleep_aid_no_habits">尚未保存习惯，当前使用默认设置</string>
+    <string name="settings_title">设置</string>
+    <string name="settings_back">返回</string>
+    <string name="settings_feature_toggles">功能开关</string>
 </resources>
