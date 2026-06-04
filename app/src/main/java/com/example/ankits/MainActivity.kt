@@ -29,7 +29,24 @@ class MainActivity : AppCompatActivity() {
 
         handleWindowInsets()
 
-        toolAdapter = ToolAdapter(getEnabledTools(allTools))
+        val hasFavorites = allTools.any {
+            SettingsManager.isToolEnabled(this, it.key) && SettingsManager.isFavorite(this, it.key)
+        }
+        if (hasFavorites) {
+            isFavoritesTab = true
+            val primary = ContextCompat.getColor(this, R.color.primary)
+            val variant = ContextCompat.getColor(this, R.color.on_surface_variant)
+            binding.iconFavorites.setColorFilter(primary)
+            binding.labelFavorites.setTextColor(primary)
+            binding.iconTools.setColorFilter(variant)
+            binding.labelTools.setTextColor(variant)
+        }
+
+        toolAdapter = ToolAdapter(getVisibleTools()) { tool ->
+            val fav = !SettingsManager.isFavorite(this, tool.key)
+            SettingsManager.setFavorite(this, tool.key, fav)
+            toolAdapter.updateTools(getVisibleTools())
+        }
         binding.toolList.layoutManager = LinearLayoutManager(this)
         binding.toolList.adapter = toolAdapter
 
@@ -59,15 +76,21 @@ class MainActivity : AppCompatActivity() {
             binding.iconFavorites.setColorFilter(variant)
             binding.labelFavorites.setTextColor(variant)
         }
+        toolAdapter.updateTools(getVisibleTools())
     }
 
     override fun onResume() {
         super.onResume()
-        toolAdapter.updateTools(getEnabledTools(allTools))
+        toolAdapter.updateTools(getVisibleTools())
     }
 
-    private fun getEnabledTools(tools: List<Tool>): List<Tool> {
-        return tools.filter { SettingsManager.isToolEnabled(this, it.key) }
+    private fun getVisibleTools(): List<Tool> {
+        val enabled = allTools.filter { SettingsManager.isToolEnabled(this, it.key) }
+        return if (isFavoritesTab) {
+            enabled.filter { SettingsManager.isFavorite(this, it.key) }
+        } else {
+            enabled
+        }
     }
 
     private val allTools: List<Tool>
@@ -162,13 +185,15 @@ data class Tool(
 )
 
 class ToolAdapter(
-    private var tools: List<Tool>
+    private var tools: List<Tool>,
+    private val onFavoriteClick: (Tool) -> Unit
 ) : RecyclerView.Adapter<ToolAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val toolIcon: ImageView = ItemToolCardBinding.bind(view).toolIcon
         val toolName: TextView = ItemToolCardBinding.bind(view).toolName
         val toolDesc: TextView = ItemToolCardBinding.bind(view).toolDesc
+        val favButton: ImageView = ItemToolCardBinding.bind(view).favButton
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -182,8 +207,22 @@ class ToolAdapter(
         holder.toolIcon.setImageResource(tool.icon)
         holder.toolName.text = tool.name
         holder.toolDesc.text = tool.desc
+
+        val ctx = holder.itemView.context
+        val isFav = SettingsManager.isFavorite(ctx, tool.key)
+        holder.favButton.setImageResource(
+            if (isFav) R.drawable.ic_favorites else R.drawable.ic_favorite_border
+        )
+        if (isFav) {
+            holder.favButton.setColorFilter(android.graphics.Color.parseColor("#F5A623"))
+        } else {
+            holder.favButton.colorFilter = null
+        }
+        holder.favButton.setOnClickListener {
+            onFavoriteClick(tool)
+        }
+
         holder.itemView.setOnClickListener {
-            val ctx = holder.itemView.context
             ctx.startActivity(Intent(ctx, tool.targetActivity))
         }
     }

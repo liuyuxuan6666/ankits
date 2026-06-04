@@ -184,6 +184,9 @@ class SettingsAdapter(
             switch.isChecked = toggle.enabled
             switch.setOnCheckedChangeListener { _, isChecked ->
                 SettingsManager.setToolEnabled(itemView.context, toggle.prefKey, isChecked)
+                if (!isChecked) {
+                    SettingsManager.setFavorite(itemView.context, toggle.prefKey, false)
+                }
             }
         }
     }
