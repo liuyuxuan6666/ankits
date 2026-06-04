@@ -212,6 +212,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             app:singleLine="false"
+                            app:singleSelection="true"
+                            app:selectionRequired="true"
                             app:chipSpacingHorizontal="8dp"
                             app:chipSpacingVertical="6dp" />
 
@@ -231,6 +233,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             app:singleLine="false"
+                            app:singleSelection="true"
+                            app:selectionRequired="true"
                             app:chipSpacingHorizontal="8dp"
                             app:chipSpacingVertical="6dp" />
 

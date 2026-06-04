@@ -132,6 +132,7 @@ class MetronomeActivity : AppCompatActivity() {
             chip.isChecked = value == engine.beatsPerBar
             chip.setOnClickListener {
                 engine.setTimeSignature(value, engine.beatUnit)
+                chip.isChecked = true
                 updateBeatCounter()
             }
             binding.numeratorChips.addView(chip)
@@ -144,6 +145,7 @@ class MetronomeActivity : AppCompatActivity() {
             chip.isChecked = value == engine.beatUnit
             chip.setOnClickListener {
                 engine.setTimeSignature(engine.beatsPerBar, value)
+                chip.isChecked = true
             }
             binding.denominatorChips.addView(chip)
         }
