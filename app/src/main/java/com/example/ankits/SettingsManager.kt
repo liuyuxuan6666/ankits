@@ -13,6 +13,14 @@ object SettingsManager {
         getPrefs(context).edit().putBoolean(toolKey, enabled).apply()
     }
 
+    fun isFavorite(context: Context, toolKey: String): Boolean {
+        return getPrefs(context).getBoolean("fav_$toolKey", false)
+    }
+
+    fun setFavorite(context: Context, toolKey: String, favorite: Boolean) {
+        getPrefs(context).edit().putBoolean("fav_$toolKey", favorite).apply()
+    }
+
     fun getString(context: Context, key: String, default: String = ""): String {
         return getPrefs(context).getString(key, default) ?: default
     }

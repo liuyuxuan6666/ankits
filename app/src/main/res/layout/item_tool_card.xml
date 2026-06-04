@@ -64,6 +64,18 @@
 
         </LinearLayout>
 
+        <ImageView
+            android:id="@+id/favButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center_vertical"
+            android:padding="8dp"
+            android:src="@drawable/ic_favorite_border"
+            android:contentDescription="@null"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackgroundBorderless" />
+
     </LinearLayout>
 
 </com.google.android.material.card.MaterialCardView>
