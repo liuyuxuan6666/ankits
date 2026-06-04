@@ -10,8 +10,10 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import android.content.Intent
 import com.example.ankits.databinding.ActivitySettingsBinding
 import com.example.ankits.databinding.ItemSettingGroupBinding
+import com.example.ankits.databinding.ItemSettingNavigateBinding
 import com.example.ankits.databinding.ItemSettingToggleBinding
 import com.google.android.material.materialswitch.MaterialSwitch
 
@@ -27,6 +29,12 @@ sealed class SettingItem(val key: String) {
         val title: String,
         val prefKey: String,
         val enabled: Boolean
+    ) : SettingItem(key)
+
+    class Navigate(
+        key: String,
+        val title: String,
+        val targetActivity: Class<*>
     ) : SettingItem(key)
 }
 
@@ -53,7 +61,8 @@ class SettingsActivity : AppCompatActivity() {
             "tuner" to getString(R.string.tool_tuner),
             "speech_to_text" to getString(R.string.tool_speech_to_text),
             "ocr" to getString(R.string.tool_ocr),
-            "sleep_aid" to getString(R.string.tool_sleep_aid)
+            "sleep_aid" to getString(R.string.tool_sleep_aid),
+            "chat" to getString(R.string.tool_chat)
         )
 
         val featureToggles = tools.map { (key, name) ->
@@ -88,6 +97,7 @@ class SettingsAdapter(
     companion object {
         private const val VIEW_TYPE_GROUP = 0
         private const val VIEW_TYPE_TOGGLE = 1
+        private const val VIEW_TYPE_NAVIGATE = 2
     }
 
     private val expandedGroups = mutableMapOf<String, Boolean>()
@@ -111,6 +121,7 @@ class SettingsAdapter(
         return when (displayItems[position]) {
             is SettingItem.Group -> VIEW_TYPE_GROUP
             is SettingItem.Toggle -> VIEW_TYPE_TOGGLE
+            is SettingItem.Navigate -> VIEW_TYPE_NAVIGATE
         }
     }
 
@@ -125,6 +136,10 @@ class SettingsAdapter(
                 val view = inflater.inflate(R.layout.item_setting_toggle, parent, false)
                 ToggleViewHolder(view)
             }
+            VIEW_TYPE_NAVIGATE -> {
+                val view = inflater.inflate(R.layout.item_setting_navigate, parent, false)
+                NavigateViewHolder(view)
+            }
             else -> throw IllegalArgumentException("Unknown view type: $viewType")
         }
     }
@@ -133,6 +148,7 @@ class SettingsAdapter(
         when (val item = displayItems[position]) {
             is SettingItem.Group -> (holder as GroupViewHolder).bind(item)
             is SettingItem.Toggle -> (holder as ToggleViewHolder).bind(item)
+            is SettingItem.Navigate -> (holder as NavigateViewHolder).bind(item)
         }
     }
 
@@ -166,6 +182,19 @@ class SettingsAdapter(
             switch.isChecked = toggle.enabled
             switch.setOnCheckedChangeListener { _, isChecked ->
                 SettingsManager.setToolEnabled(itemView.context, toggle.prefKey, isChecked)
+            }
+        }
+    }
+
+    inner class NavigateViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val titleText: TextView = ItemSettingNavigateBinding.bind(view).navTitle
+        private val chevronText: TextView = ItemSettingNavigateBinding.bind(view).navChevron
+
+        fun bind(item: SettingItem.Navigate) {
+            titleText.text = item.title
+            chevronText.text = "\u25B8"
+            itemView.setOnClickListener {
+                itemView.context.startActivity(Intent(itemView.context, item.targetActivity))
             }
         }
     }
