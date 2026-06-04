@@ -33,7 +33,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="语音转文字"
+            android:text="@string/tool_tts"
             android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
             android:textColor="@color/on_surface" />
 
@@ -50,7 +50,7 @@
 
     </LinearLayout>
 
-    <!-- Status area -->
+    <!-- Status bar -->
     <LinearLayout
         android:id="@+id/statusArea"
         android:layout_width="match_parent"
@@ -72,44 +72,119 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:text="点击下方按钮开始录音"
+            android:text="@string/tts_status_ready"
             android:textSize="14sp"
             android:textColor="@color/on_surface_variant" />
 
     </LinearLayout>
 
-    <!-- Text display -->
-    <ScrollView
-        android:id="@+id/textScroll"
+    <!-- Text input -->
+    <EditText
+        android:id="@+id/textInput"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:paddingHorizontal="20dp"
-        android:paddingTop="12dp"
-        android:paddingBottom="12dp">
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginTop="12dp"
+        android:gravity="top|start"
+        android:hint="@string/tts_hint_input"
+        android:textColor="@color/on_surface"
+        android:textColorHint="@color/on_surface_variant"
+        android:textSize="18sp"
+        android:lineSpacingExtra="6sp"
+        android:inputType="textMultiLine|textLongMessage"
+        android:background="@android:color/transparent" />
 
-        <TextView
-            android:id="@+id/resultText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="top|start"
-            android:textColor="@color/on_surface"
-            android:textSize="18sp"
-            android:lineSpacingExtra="6sp" />
-
-    </ScrollView>
-
-    <!-- Partial result hint -->
-    <TextView
-        android:id="@+id/partialHint"
+    <!-- Controls -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center"
+        android:orientation="vertical"
         android:paddingHorizontal="20dp"
-        android:paddingBottom="4dp"
-        android:textColor="#1A73E8"
-        android:textSize="14sp"
-        android:visibility="gone" />
+        android:paddingBottom="8dp">
+
+        <!-- Speed -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/tts_speed"
+            android:textSize="14sp"
+            android:textColor="@color/on_surface_variant"
+            android:layout_marginBottom="4dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="32dp"
+                android:layout_height="wrap_content"
+                android:text="0.5x"
+                android:textSize="12sp"
+                android:textColor="@color/on_surface_variant" />
+
+            <SeekBar
+                android:id="@+id/speedSlider"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="10"
+                android:progress="5" />
+
+            <TextView
+                android:layout_width="32dp"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:text="2.0x"
+                android:textSize="12sp"
+                android:textColor="@color/on_surface_variant" />
+
+        </LinearLayout>
+
+        <!-- Pitch -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/tts_pitch"
+            android:textSize="14sp"
+            android:textColor="@color/on_surface_variant"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="4dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="32dp"
+                android:layout_height="wrap_content"
+                android:text="0.5x"
+                android:textSize="12sp"
+                android:textColor="@color/on_surface_variant" />
+
+            <SeekBar
+                android:id="@+id/pitchSlider"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="10"
+                android:progress="5" />
+
+            <TextView
+                android:layout_width="32dp"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:text="2.0x"
+                android:textSize="12sp"
+                android:textColor="@color/on_surface_variant" />
+
+        </LinearLayout>
+
+    </LinearLayout>
 
     <!-- Bottom Bar -->
     <LinearLayout
@@ -124,32 +199,6 @@
         android:elevation="4dp">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/copyBtn"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:contentDescription="复制"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:padding="0dp"
-            app:icon="@drawable/ic_copy"
-            app:iconGravity="textStart"
-            app:iconSize="24dp"
-            app:cornerRadius="24dp" />
-
-        <androidx.appcompat.widget.AppCompatImageButton
-            android:id="@+id/micBtn"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            android:layout_marginHorizontal="24dp"
-            android:background="@drawable/circle_button_bg"
-            android:scaleType="center"
-            android:src="@drawable/ic_mic"
-            android:contentDescription="录音" />
-
-        <com.google.android.material.button.MaterialButton
             android:id="@+id/clearBtn"
             style="@style/Widget.Material3.Button.TextButton"
             android:layout_width="48dp"
@@ -161,6 +210,33 @@
             android:minHeight="0dp"
             android:padding="0dp"
             app:icon="@drawable/ic_clear"
+            app:iconGravity="textStart"
+            app:iconSize="24dp"
+            app:cornerRadius="24dp" />
+
+        <androidx.appcompat.widget.AppCompatImageButton
+            android:id="@+id/playBtn"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_marginHorizontal="24dp"
+            android:background="@drawable/circle_button_bg"
+            android:scaleType="center"
+            android:src="@drawable/ic_tts"
+            android:contentDescription="播放" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/stopBtn"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:contentDescription="停止"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:padding="0dp"
+            android:enabled="false"
+            app:icon="@drawable/ic_close"
             app:iconGravity="textStart"
             app:iconSize="24dp"
             app:cornerRadius="24dp" />

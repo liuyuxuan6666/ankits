@@ -149,4 +149,12 @@
     <string name="chat_config_advanced">高级设置</string>
     <string name="chat_config_streaming">流式输出 (Streaming)</string>
     <string name="chat_rename_hint">输入新名称</string>
+    <string name="tool_tts">文字转语音</string>
+    <string name="tool_tts_desc">将文字转为语音朗读，支持语速和音调调节</string>
+    <string name="tts_hint_input">输入要朗读的文字…</string>
+    <string name="tts_status_ready">准备就绪</string>
+    <string name="tts_status_speaking">正在朗读…</string>
+    <string name="tts_speed">语速</string>
+    <string name="tts_pitch">音调</string>
+    <string name="tts_empty_text">请输入要朗读的文字</string>
 </resources>

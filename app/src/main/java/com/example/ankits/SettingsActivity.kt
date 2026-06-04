@@ -63,7 +63,8 @@ class SettingsActivity : AppCompatActivity() {
             "ocr" to getString(R.string.tool_ocr),
             "sleep_aid" to getString(R.string.tool_sleep_aid),
             "pomodoro" to getString(R.string.tool_pomodoro),
-            "chat" to getString(R.string.tool_chat)
+            "chat" to getString(R.string.tool_chat),
+            "tts" to getString(R.string.tool_tts)
         )
 
         val featureToggles = tools.map { (key, name) ->

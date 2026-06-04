@@ -161,11 +161,10 @@ class SpeechToTextActivity : AppCompatActivity() {
         isListening = true
         binding.statusDot.setBackgroundResource(R.drawable.status_dot_on)
         binding.statusLabel.text = "正在聆听…"
-        binding.micBtn.setIconResource(R.drawable.ic_mic)
-        binding.micBtn.setBackgroundTintList(
+        binding.micBtn.setImageResource(R.drawable.ic_mic)
+        binding.micBtn.backgroundTintList =
             android.content.res.ColorStateList.valueOf(getColor(R.color.error))
-        )
-        binding.micBtn.iconTint = android.content.res.ColorStateList.valueOf(
+        binding.micBtn.imageTintList = android.content.res.ColorStateList.valueOf(
             getColor(R.color.white)
         )
     }
@@ -174,11 +173,10 @@ class SpeechToTextActivity : AppCompatActivity() {
         isListening = false
         binding.statusDot.setBackgroundResource(R.drawable.status_dot_off)
         binding.statusLabel.text = getString(R.string.speech_status_idle)
-        binding.micBtn.setIconResource(R.drawable.ic_mic)
-        binding.micBtn.setBackgroundTintList(
+        binding.micBtn.setImageResource(R.drawable.ic_mic)
+        binding.micBtn.backgroundTintList =
             android.content.res.ColorStateList.valueOf(getColor(R.color.primary))
-        )
-        binding.micBtn.iconTint = android.content.res.ColorStateList.valueOf(
+        binding.micBtn.imageTintList = android.content.res.ColorStateList.valueOf(
             getColor(R.color.white)
         )
     }
@@ -188,9 +186,8 @@ class SpeechToTextActivity : AppCompatActivity() {
         binding.statusDot.setBackgroundResource(R.drawable.status_dot_off)
         binding.statusLabel.text = message
         binding.micBtn.isEnabled = false
-        binding.micBtn.setBackgroundTintList(
+        binding.micBtn.backgroundTintList =
             android.content.res.ColorStateList.valueOf(getColor(R.color.outline))
-        )
     }
 
     private fun appendText(text: String) {

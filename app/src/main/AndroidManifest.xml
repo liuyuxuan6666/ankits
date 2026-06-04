@@ -97,6 +97,12 @@
             android:theme="@style/Theme.Ankits"
             android:parentActivityName=".MainActivity" />
 
+        <activity
+            android:name=".TtsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Ankits"
+            android:parentActivityName=".MainActivity" />
+
         <service
             android:name=".MetronomeService"
             android:exported="false"

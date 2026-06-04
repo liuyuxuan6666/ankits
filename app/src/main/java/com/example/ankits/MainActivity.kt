@@ -127,6 +127,13 @@ class MainActivity : AppCompatActivity() {
                 desc = getString(R.string.tool_chat_desc),
                 icon = R.drawable.ic_chat,
                 targetActivity = ChatActivity::class.java
+            ),
+            Tool(
+                key = "tts",
+                name = getString(R.string.tool_tts),
+                desc = getString(R.string.tool_tts_desc),
+                icon = R.drawable.ic_tts,
+                targetActivity = TtsActivity::class.java
             )
         )
 
