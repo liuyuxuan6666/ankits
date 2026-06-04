@@ -69,7 +69,8 @@ class MetronomeActivity : AppCompatActivity() {
     // --- Toolbar ---
 
     private fun setupToolbar() {
-        binding.toolbar.setNavigationOnClickListener { finish() }
+        binding.backBtn.setOnClickListener { finish() }
+        binding.settingsBtn.setOnClickListener { /* TODO: open settings */ }
     }
 
     // --- BPM controls ---
@@ -93,11 +94,7 @@ class MetronomeActivity : AppCompatActivity() {
     private fun adjustBpm(delta: Int) {
         val newBpm = (engine.bpm + delta).coerceIn(20, 300)
         if (newBpm != engine.bpm) {
-            if (isPlaying) {
-                engine.setTempo(newBpm)
-            } else {
-                engine.bpm = newBpm
-            }
+            engine.setTempo(newBpm)
             updateBpmDisplay()
         }
     }
@@ -218,11 +215,7 @@ class MetronomeActivity : AppCompatActivity() {
                 val avgInterval = totalInterval / (tapTimestamps.size - 1)
                 val computedBpm = (60000.0 / avgInterval).toInt().coerceIn(20, 300)
 
-                if (isPlaying) {
-                    engine.setTempo(computedBpm)
-                } else {
-                    engine.bpm = computedBpm
-                }
+                engine.setTempo(computedBpm)
                 updateBpmDisplay()
             }
         }

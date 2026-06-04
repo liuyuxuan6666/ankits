@@ -20,15 +20,46 @@
             android:paddingHorizontal="16dp"
             android:paddingBottom="12dp">
 
-            <com.google.android.material.appbar.MaterialToolbar
-                android:id="@+id/toolbar"
+            <LinearLayout
+                android:id="@+id/topBar"
                 android:layout_width="match_parent"
-                android:layout_height="?attr/actionBarSize"
+                android:layout_height="56dp"
                 android:background="@color/background"
-                app:title="电子节拍器"
-                app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge"
-                app:titleTextColor="@color/on_surface"
-                app:navigationIcon="?attr/homeAsUpIndicator" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/backBtn"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:contentDescription="返回"
+                    android:focusable="true"
+                    android:padding="8dp"
+                    android:src="?attr/homeAsUpIndicator" />
+
+                <TextView
+                    android:id="@+id/toolbarTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="电子节拍器"
+                    android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+                    android:textColor="@color/on_surface" />
+
+                <ImageView
+                    android:id="@+id/settingsBtn"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:contentDescription="@string/settings"
+                    android:focusable="true"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_settings" />
+
+            </LinearLayout>
 
             <!-- Beat Indicator -->
             <LinearLayout

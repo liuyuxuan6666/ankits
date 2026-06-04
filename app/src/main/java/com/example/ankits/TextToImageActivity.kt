@@ -46,7 +46,8 @@ class TextToImageActivity : AppCompatActivity() {
 
         handleWindowInsets()
 
-        binding.toolbar.setNavigationOnClickListener { finish() }
+        binding.backBtn.setOnClickListener { finish() }
+        binding.settingsBtn.setOnClickListener { /* TODO: open settings */ }
 
         binding.fontSizeSeek.progress = 20
         updateFontSizeLabel(binding.fontSizeSeek.progress)

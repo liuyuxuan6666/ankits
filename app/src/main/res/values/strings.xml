@@ -21,4 +21,12 @@
     <string name="tab_favorites">收藏夹</string>
     <string name="tab_tools">工具</string>
     <string name="settings">设置</string>
+    <string name="tool_tuner">电子调音器</string>
+    <string name="tool_tuner_desc">精确调音，支持多种乐器和调音模式</string>
+    <string name="tool_speech_to_text">语音转文字</string>
+    <string name="tool_speech_to_text_desc">本地语音识别，实时转写为文字</string>
+    <string name="tool_ocr">本地OCR</string>
+    <string name="tool_ocr_desc">离线图片文字识别，无需联网</string>
+    <string name="tool_sleep_aid">小助眠</string>
+    <string name="tool_sleep_aid_desc">白噪音与助眠音效，帮助放松入睡</string>
 </resources>

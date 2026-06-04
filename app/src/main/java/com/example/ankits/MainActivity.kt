@@ -41,6 +41,30 @@ class MainActivity : AppCompatActivity() {
                 desc = getString(R.string.tool_metronome_desc),
                 icon = R.drawable.ic_metronome,
                 targetActivity = MetronomeActivity::class.java
+            ),
+            Tool(
+                name = getString(R.string.tool_tuner),
+                desc = getString(R.string.tool_tuner_desc),
+                icon = R.drawable.ic_tuner,
+                targetActivity = TunerActivity::class.java
+            ),
+            Tool(
+                name = getString(R.string.tool_speech_to_text),
+                desc = getString(R.string.tool_speech_to_text_desc),
+                icon = R.drawable.ic_speech_to_text,
+                targetActivity = SpeechToTextActivity::class.java
+            ),
+            Tool(
+                name = getString(R.string.tool_ocr),
+                desc = getString(R.string.tool_ocr_desc),
+                icon = R.drawable.ic_ocr,
+                targetActivity = OcrActivity::class.java
+            ),
+            Tool(
+                name = getString(R.string.tool_sleep_aid),
+                desc = getString(R.string.tool_sleep_aid_desc),
+                icon = R.drawable.ic_sleep_aid,
+                targetActivity = SleepAidActivity::class.java
             )
         )
 

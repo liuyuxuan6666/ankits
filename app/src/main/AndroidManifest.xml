@@ -31,6 +31,30 @@
             android:theme="@style/Theme.Ankits"
             android:parentActivityName=".MainActivity" />
 
+        <activity
+            android:name=".TunerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Ankits"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".SpeechToTextActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Ankits"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".OcrActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Ankits"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".SleepAidActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Ankits"
+            android:parentActivityName=".MainActivity" />
+
     </application>
 
 </manifest>
