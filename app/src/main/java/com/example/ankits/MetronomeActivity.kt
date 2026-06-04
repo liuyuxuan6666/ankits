@@ -1,8 +1,13 @@
 package com.example.ankits
 
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import android.view.MotionEvent
@@ -18,13 +23,26 @@ import com.google.android.material.chip.Chip
 class MetronomeActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMetronomeBinding
-    private val engine = MetronomeEngine()
+    private var service: MetronomeService? = null
     private val handler = Handler(Looper.getMainLooper())
     private val tapTimestamps = mutableListOf<Long>()
 
     private var bpmRepeatRunnable: Runnable? = null
     private var beatResetRunnable: Runnable? = null
     private var isPlaying = false
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            service = (binder as MetronomeService.LocalBinder).getService()
+            service?.onBeatCallback = { beat -> onBeat(beat) }
+            syncUiFromEngine()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            service?.onBeatCallback = null
+            service = null
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,20 +56,32 @@ class MetronomeActivity : AppCompatActivity() {
         setupSoundConfig()
         setupTapTempo()
         setupPlayButton()
-        updateBpmDisplay()
     }
 
-    override fun onPause() {
-        super.onPause()
+    override fun onStart() {
+        super.onStart()
+        bindService(
+            Intent(this, MetronomeService::class.java),
+            serviceConnection,
+            Context.BIND_AUTO_CREATE
+        )
+    }
+
+    override fun finish() {
         if (isPlaying) {
-            engine.stop()
-            clearKeepScreenOn()
+            stopPlayback()
         }
+        super.finish()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        service?.onBeatCallback = null
+        unbindService(serviceConnection)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        engine.release()
         handler.removeCallbacksAndMessages(null)
     }
 
@@ -92,9 +122,10 @@ class MetronomeActivity : AppCompatActivity() {
     }
 
     private fun adjustBpm(delta: Int) {
-        val newBpm = (engine.bpm + delta).coerceIn(20, 300)
-        if (newBpm != engine.bpm) {
-            engine.setTempo(newBpm)
+        val s = service ?: return
+        val newBpm = (s.engine.bpm + delta).coerceIn(20, 300)
+        if (newBpm != s.engine.bpm) {
+            s.updateBpm(newBpm)
             updateBpmDisplay()
         }
     }
@@ -116,7 +147,7 @@ class MetronomeActivity : AppCompatActivity() {
     }
 
     private fun updateBpmDisplay() {
-        binding.bpmText.text = engine.bpm.toString()
+        binding.bpmText.text = (service?.engine?.bpm ?: 120).toString()
     }
 
     // --- Time signature chips ---
@@ -125,13 +156,17 @@ class MetronomeActivity : AppCompatActivity() {
         val numeratorValues = (1..8).toList()
         val denominatorValues = listOf(2, 4, 8, 16)
 
+        val defaultBeats = service?.engine?.beatsPerBar ?: 4
+        val defaultUnit = service?.engine?.beatUnit ?: 4
+
         numeratorValues.forEach { value ->
             val chip = Chip(binding.numeratorChips.context)
             chip.text = value.toString()
             chip.isCheckable = true
-            chip.isChecked = value == engine.beatsPerBar
+            chip.isChecked = value == defaultBeats
             chip.setOnClickListener {
-                engine.setTimeSignature(value, engine.beatUnit)
+                val s = service ?: return@setOnClickListener
+                s.updateTimeSignature(value, s.engine.beatUnit)
                 chip.isChecked = true
                 updateBeatCounter()
             }
@@ -142,15 +177,15 @@ class MetronomeActivity : AppCompatActivity() {
             val chip = Chip(binding.denominatorChips.context)
             chip.text = value.toString()
             chip.isCheckable = true
-            chip.isChecked = value == engine.beatUnit
+            chip.isChecked = value == defaultUnit
             chip.setOnClickListener {
-                engine.setTimeSignature(engine.beatsPerBar, value)
+                val s = service ?: return@setOnClickListener
+                s.updateTimeSignature(s.engine.beatsPerBar, value)
                 chip.isChecked = true
             }
             binding.denominatorChips.addView(chip)
         }
 
-        // Collapsible card
         binding.timeSigHeader.setOnClickListener {
             toggleVisibility(binding.timeSigContent, binding.timeSigChevron)
         }
@@ -164,7 +199,7 @@ class MetronomeActivity : AppCompatActivity() {
                 override fun onProgressChanged(seek: android.widget.SeekBar, progress: Int, fromUser: Boolean) {
                     val freq = (progress + 200).toDouble()
                     binding.accentFreqLabel.text = "${freq.toInt()}Hz"
-                    if (fromUser) engine.accentFreq = freq
+                    if (fromUser) service?.engine?.let { it.accentFreq = freq }
                 }
                 override fun onStartTrackingTouch(seek: android.widget.SeekBar) {}
                 override fun onStopTrackingTouch(seek: android.widget.SeekBar) {}
@@ -176,7 +211,7 @@ class MetronomeActivity : AppCompatActivity() {
                 override fun onProgressChanged(seek: android.widget.SeekBar, progress: Int, fromUser: Boolean) {
                     val freq = (progress + 200).toDouble()
                     binding.unaccentFreqLabel.text = "${freq.toInt()}Hz"
-                    if (fromUser) engine.unaccentFreq = freq
+                    if (fromUser) service?.engine?.let { it.unaccentFreq = freq }
                 }
                 override fun onStartTrackingTouch(seek: android.widget.SeekBar) {}
                 override fun onStopTrackingTouch(seek: android.widget.SeekBar) {}
@@ -198,13 +233,11 @@ class MetronomeActivity : AppCompatActivity() {
         binding.tapTempoBtn.setOnClickListener {
             val now = SystemClock.elapsedRealtime()
 
-            // Reset if last tap was more than 2 seconds ago
             if (tapTimestamps.isNotEmpty() && now - tapTimestamps.last() > 2000) {
                 tapTimestamps.clear()
             }
 
             tapTimestamps.add(now)
-            // Keep only last 5 taps
             while (tapTimestamps.size > 5) {
                 tapTimestamps.removeAt(0)
             }
@@ -217,7 +250,7 @@ class MetronomeActivity : AppCompatActivity() {
                 val avgInterval = totalInterval / (tapTimestamps.size - 1)
                 val computedBpm = (60000.0 / avgInterval).toInt().coerceIn(20, 300)
 
-                engine.setTempo(computedBpm)
+                service?.updateBpm(computedBpm)
                 updateBpmDisplay()
             }
         }
@@ -236,38 +269,40 @@ class MetronomeActivity : AppCompatActivity() {
     }
 
     private fun startPlayback() {
-        val success = engine.initAudioTrack()
-        if (!success) return
+        val s = service ?: return
 
-        engine.start { beat ->
-            // Flash beat indicator
-            val isAccent = beat == 0
-            val color = if (isAccent) R.color.primary else R.color.on_surface_variant
-            setBeatIndicatorColor(color)
-
-            beatResetRunnable?.let { handler.removeCallbacks(it) }
-            beatResetRunnable = Runnable {
-                setBeatIndicatorColor(R.color.tool_icon_default)
-            }
-            handler.postDelayed(beatResetRunnable!!, 80)
-
-            updateBeatCounter()
-        }
+        startService(Intent(this, MetronomeService::class.java))
+        s.startPlayback { beat -> onBeat(beat) }
 
         isPlaying = true
         binding.playBtn.text = "■ 停止"
+        binding.tapTempoBtn.isEnabled = false
         setKeepScreenOn()
-        updateBeatCounter() // reset display
+        updateBeatCounterToReady()
     }
 
     private fun stopPlayback() {
-        engine.stop()
+        service?.stopPlayback()
         isPlaying = false
         binding.playBtn.text = "▶ 开始"
+        binding.tapTempoBtn.isEnabled = true
         clearKeepScreenOn()
         setBeatIndicatorColor(R.color.tool_icon_default)
-        binding.beatCounter.text = "${engine.beatsPerBar} / ${engine.beatsPerBar}" // show as stopped/ready
         updateBeatCounterToReady()
+    }
+
+    private fun onBeat(beat: Int) {
+        val isAccent = beat == 0
+        val color = if (isAccent) R.color.primary else R.color.on_surface_variant
+        setBeatIndicatorColor(color)
+
+        beatResetRunnable?.let { handler.removeCallbacks(it) }
+        beatResetRunnable = Runnable {
+            setBeatIndicatorColor(R.color.tool_icon_default)
+        }
+        handler.postDelayed(beatResetRunnable!!, 80)
+
+        updateBeatCounter()
     }
 
     private fun setBeatIndicatorColor(colorRes: Int) {
@@ -278,11 +313,51 @@ class MetronomeActivity : AppCompatActivity() {
     }
 
     private fun updateBeatCounter() {
+        val engine = service?.engine ?: return
         binding.beatCounter.text = "${engine.currentBeat + 1} / ${engine.beatsPerBar}"
     }
 
     private fun updateBeatCounterToReady() {
-        binding.beatCounter.text = "1 / ${engine.beatsPerBar}"
+        val beats = service?.engine?.beatsPerBar ?: 4
+        binding.beatCounter.text = "1 / $beats"
+    }
+
+    // --- Sync UI from engine on (re)connect ---
+
+    private fun syncUiFromEngine() {
+        val e = service?.engine ?: return
+
+        updateBpmDisplay()
+
+        if (e.isPlaying) {
+            isPlaying = true
+            binding.playBtn.text = "■ 停止"
+            binding.tapTempoBtn.isEnabled = false
+            setKeepScreenOn()
+            updateBeatCounter()
+        }
+
+        syncTimeSignatureChips()
+        syncSoundConfig()
+    }
+
+    private fun syncTimeSignatureChips() {
+        val e = service?.engine ?: return
+
+        for (i in 0 until binding.numeratorChips.childCount) {
+            val chip = binding.numeratorChips.getChildAt(i) as? Chip ?: continue
+            chip.isChecked = chip.text.toString().toIntOrNull() == e.beatsPerBar
+        }
+        for (i in 0 until binding.denominatorChips.childCount) {
+            val chip = binding.denominatorChips.getChildAt(i) as? Chip ?: continue
+            chip.isChecked = chip.text.toString().toIntOrNull() == e.beatUnit
+        }
+    }
+
+    private fun syncSoundConfig() {
+        val e = service?.engine ?: return
+        binding.accentFreqSeek.progress = e.accentFreq.toInt() - 200
+        binding.unaccentFreqSeek.progress = e.unaccentFreq.toInt() - 200
     }
 
     // --- Utility ---

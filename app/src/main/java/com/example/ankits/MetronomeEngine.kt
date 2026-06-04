@@ -38,7 +38,8 @@ class MetronomeEngine {
             unaccentedSamples = generateClick(value, 0.5)
         }
 
-    private var isPlaying = false
+    private var playing = false
+    val isPlaying: Boolean get() = playing
     private var onBeat: ((beat: Int) -> Unit)? = null
     private val handler = Handler(Looper.getMainLooper())
     private var nextBeatTime = 0L
@@ -94,11 +95,11 @@ class MetronomeEngine {
     }
 
     fun start(onBeat: (beat: Int) -> Unit) {
-        if (isPlaying) return
+        if (playing) return
         if (!initAudioTrack()) return
 
         this.onBeat = onBeat
-        isPlaying = true
+        playing = true
         currentBeat = 0
         nextBeatTime = 0L
         scheduleCount = 0
@@ -108,7 +109,7 @@ class MetronomeEngine {
     }
 
     fun stop() {
-        isPlaying = false
+        playing = false
         handler.removeCallbacksAndMessages(null)
         try {
             audioTrack?.pause()
@@ -118,7 +119,7 @@ class MetronomeEngine {
 
     fun setTempo(newBpm: Int) {
         bpm = newBpm.coerceIn(20, 300)
-        if (isPlaying) {
+        if (playing) {
             nextBeatTime = 0L
             scheduleCount = 0
             handler.removeCallbacksAndMessages(null)
@@ -129,7 +130,7 @@ class MetronomeEngine {
     fun setTimeSignature(beats: Int, unit: Int) {
         beatsPerBar = beats.coerceIn(1, 12)
         beatUnit = unit
-        if (!isPlaying) {
+        if (!playing) {
             currentBeat = 0
         }
     }
@@ -143,7 +144,7 @@ class MetronomeEngine {
     }
 
     private fun scheduleNextBeat() {
-        if (!isPlaying) return
+        if (!playing) return
 
         val intervalMs = (60000.0 / bpm).toLong()
         val now = SystemClock.elapsedRealtime()
