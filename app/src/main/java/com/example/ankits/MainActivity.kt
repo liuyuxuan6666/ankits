@@ -157,6 +157,13 @@ class MainActivity : AppCompatActivity() {
                 desc = getString(R.string.tool_tts_desc),
                 icon = R.drawable.ic_tts,
                 targetActivity = TtsActivity::class.java
+            ),
+            Tool(
+                key = "image_stitch",
+                name = getString(R.string.tool_image_stitch),
+                desc = getString(R.string.tool_image_stitch_desc),
+                icon = R.drawable.ic_image_stitch,
+                targetActivity = ImageStitchActivity::class.java
             )
         )
 
