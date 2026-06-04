@@ -103,6 +103,19 @@
             android:theme="@style/Theme.Ankits"
             android:parentActivityName=".MainActivity" />
 
+        <activity
+            android:name=".NotesListActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Ankits"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".NoteEditorActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Ankits"
+            android:windowSoftInputMode="adjustResize"
+            android:parentActivityName=".NotesListActivity" />
+
         <service
             android:name=".MetronomeService"
             android:exported="false"

@@ -157,6 +157,13 @@ class MainActivity : AppCompatActivity() {
                 desc = getString(R.string.tool_tts_desc),
                 icon = R.drawable.ic_tts,
                 targetActivity = TtsActivity::class.java
+            ),
+            Tool(
+                key = "notes",
+                name = getString(R.string.tool_notes),
+                desc = getString(R.string.tool_notes_desc),
+                icon = R.drawable.ic_note,
+                targetActivity = NotesListActivity::class.java
             )
         )
 
