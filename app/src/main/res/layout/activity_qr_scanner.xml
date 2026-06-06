@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:orientation="vertical">
+
+    <!-- Top Bar -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="@color/background"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp">
+
+        <ImageView
+            android:id="@+id/backBtn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="返回"
+            android:focusable="true"
+            android:padding="8dp"
+            android:src="?attr/homeAsUpIndicator" />
+
+        <TextView
+            android:id="@+id/toolbarTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/tool_qr_scanner"
+            android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+            android:textColor="@color/on_surface" />
+
+        <ImageView
+            android:id="@+id/copyBtn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/qr_btn_copy"
+            android:focusable="true"
+            android:padding="8dp"
+            android:src="@drawable/ic_copy" />
+
+    </LinearLayout>
+
+    <!-- Content -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Empty State Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/emptyState"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:strokeColor="@color/outline_variant"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:alpha="0.4"
+                        android:src="@drawable/ic_qr_scanner" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/qr_hint_empty"
+                        android:textColor="@color/on_surface_variant"
+                        android:textSize="14sp" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Result Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/resultCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:strokeColor="@color/outline_variant"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- Warning Banner (URL only) -->
+                    <LinearLayout
+                        android:id="@+id/urlWarningSection"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="#FCE8E6"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="10dp"
+                        android:visibility="gone"
+                        app:cardCornerRadius="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/qr_url_warning"
+                            android:textColor="#C5221F"
+                            android:textSize="13sp" />
+
+                    </LinearLayout>
+
+                    <!-- Raw Content -->
+                    <TextView
+                        android:id="@+id/resultLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/qr_result_label"
+                        android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+                        android:textColor="@color/on_surface_variant" />
+
+                    <ScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:maxHeight="120dp"
+                        android:layout_marginTop="4dp">
+
+                        <TextView
+                            android:id="@+id/resultText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/on_surface"
+                            android:textIsSelectable="true"
+                            android:textSize="16sp"
+                            android:lineSpacingExtra="4sp" />
+
+                    </ScrollView>
+
+                    <!-- URL Breakdown (URL only) -->
+                    <LinearLayout
+                        android:id="@+id/urlBreakdownSection"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/outline_variant" />
+
+                        <!-- Scheme -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="64dp"
+                                android:layout_height="wrap_content"
+                                android:text="@string/qr_url_scheme"
+                                android:textColor="@color/on_surface_variant"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/urlSchemeValue"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="@color/on_surface"
+                                android:textSize="13sp" />
+
+                        </LinearLayout>
+
+                        <!-- Host -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="64dp"
+                                android:layout_height="wrap_content"
+                                android:text="@string/qr_url_host"
+                                android:textColor="@color/on_surface_variant"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/urlHostValue"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="@color/on_surface"
+                                android:textSize="13sp" />
+
+                        </LinearLayout>
+
+                        <!-- Path -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="64dp"
+                                android:layout_height="wrap_content"
+                                android:text="@string/qr_url_path"
+                                android:textColor="@color/on_surface_variant"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/urlPathValue"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="@color/on_surface"
+                                android:textSize="13sp" />
+
+                        </LinearLayout>
+
+                        <!-- Query -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="64dp"
+                                android:layout_height="wrap_content"
+                                android:text="@string/qr_url_query"
+                                android:textColor="@color/on_surface_variant"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/urlQueryValue"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textColor="@color/on_surface"
+                                android:textSize="13sp" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+    </ScrollView>
+
+    <!-- Bottom Bar -->
+    <LinearLayout
+        android:id="@+id/bottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/background"
+        android:elevation="4dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/scanBtn"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="@string/qr_btn_scan"
+            app:icon="@drawable/ic_qr_scanner"
+            app:iconSize="20dp"
+            app:cornerRadius="24dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

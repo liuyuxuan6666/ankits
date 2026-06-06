@@ -164,6 +164,13 @@ class MainActivity : AppCompatActivity() {
                 desc = getString(R.string.tool_image_stitch_desc),
                 icon = R.drawable.ic_image_stitch,
                 targetActivity = ImageStitchActivity::class.java
+            ),
+            Tool(
+                key = "qr_scanner",
+                name = getString(R.string.tool_qr_scanner),
+                desc = getString(R.string.tool_qr_scanner_desc),
+                icon = R.drawable.ic_qr_scanner,
+                targetActivity = QrScannerActivity::class.java
             )
         )
 

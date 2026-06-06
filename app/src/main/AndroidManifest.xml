@@ -109,6 +109,19 @@
             android:theme="@style/Theme.Ankits"
             android:parentActivityName=".MainActivity" />
 
+        <activity
+            android:name=".QrScannerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Ankits"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".CaptureActivityPortrait"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.Ankits" />
+
         <service
             android:name=".MetronomeService"
             android:exported="false"

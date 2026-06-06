@@ -64,7 +64,8 @@ class SettingsActivity : AppCompatActivity() {
             "sleep_aid" to getString(R.string.tool_sleep_aid),
             "pomodoro" to getString(R.string.tool_pomodoro),
             "chat" to getString(R.string.tool_chat),
-            "tts" to getString(R.string.tool_tts)
+            "tts" to getString(R.string.tool_tts),
+            "qr_scanner" to getString(R.string.tool_qr_scanner)
         )
 
         val featureToggles = tools.map { (key, name) ->

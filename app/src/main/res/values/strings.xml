@@ -167,4 +167,18 @@
     <string name="stitch_seam_adjust">接缝调节</string>
     <string name="stitch_empty_hint">点击「添加图片」选择要拼接的图片</string>
     <string name="stitch_no_images">请先添加图片</string>
+    <string name="tool_qr_scanner">安全扫码</string>
+    <string name="tool_qr_scanner_desc">扫描二维码，安全查看内容，绝不访问链接</string>
+    <string name="qr_btn_scan">开始扫描</string>
+    <string name="qr_btn_scan_again">重新扫描</string>
+    <string name="qr_btn_copy">复制内容</string>
+    <string name="qr_hint_empty">点击下方按钮开始扫描二维码</string>
+    <string name="qr_result_label">解码结果</string>
+    <string name="qr_url_warning">安全提醒：该内容为网址链接，请勿随意访问陌生链接</string>
+    <string name="qr_url_scheme">协议</string>
+    <string name="qr_url_host">域名</string>
+    <string name="qr_url_path">路径</string>
+    <string name="qr_url_query">查询参数</string>
+    <string name="qr_copy_success">已复制到剪贴板</string>
+    <string name="qr_scan_failed">扫描失败，请重试</string>
 </resources>
