@@ -20,5 +20,5 @@ interface TtsEngine {
 }
 
 object TtsEngineFactory {
-    fun create(): TtsEngine = SystemTtsEngine()
+    fun create(): TtsEngine = FallbackTtsEngine()
 }
