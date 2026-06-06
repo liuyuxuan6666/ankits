@@ -159,6 +159,13 @@ class MainActivity : AppCompatActivity() {
                 targetActivity = TtsActivity::class.java
             ),
             Tool(
+                key = "notes",
+                name = getString(R.string.tool_notes),
+                desc = getString(R.string.tool_notes_desc),
+                icon = R.drawable.ic_note,
+                targetActivity = NotesListActivity::class.java
+            ),
+            Tool(
                 key = "image_stitch",
                 name = getString(R.string.tool_image_stitch),
                 desc = getString(R.string.tool_image_stitch_desc),

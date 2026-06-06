@@ -5,7 +5,6 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -38,12 +37,14 @@ class MetronomeEngine {
             unaccentedSamples = generateClick(value, 0.5)
         }
 
-    private var playing = false
+    @Volatile private var playing = false
     val isPlaying: Boolean get() = playing
     private var onBeat: ((beat: Int) -> Unit)? = null
     private val handler = Handler(Looper.getMainLooper())
-    private var nextBeatTime = 0L
-    private var scheduleCount = 0
+    private var audioThread: Thread? = null
+
+    @Volatile private var volBpm: Int = 120
+    @Volatile private var volBeatsPerBar: Int = 4
 
     init {
         accentedSamples = generateClick(accentFreq, 0.8)
@@ -59,7 +60,8 @@ class MetronomeEngine {
             AudioFormat.ENCODING_PCM_16BIT
         )
 
-        val bufferSize = maxOf(minBufSize, sampleRate * 2 * clickDurationMs / 1000)
+        // Keep buffer minimal so write() blocks close to actual playback position
+        val bufferSize = maxOf(minBufSize, sampleRate)
 
         audioTrack = AudioTrack.Builder()
             .setAudioAttributes(
@@ -99,37 +101,92 @@ class MetronomeEngine {
         if (!initAudioTrack()) return
 
         this.onBeat = onBeat
+        volBpm = bpm
+        volBeatsPerBar = beatsPerBar
         playing = true
         currentBeat = 0
-        nextBeatTime = 0L
-        scheduleCount = 0
 
         audioTrack?.play()
-        scheduleNextBeat()
+
+        audioThread = Thread {
+            val track = audioTrack ?: return@Thread
+            var beatCount = 0
+
+            while (playing) {
+                val currentBpm = volBpm
+                val currentBeatsPerBar = volBeatsPerBar
+                val beatIndex = beatCount % currentBeatsPerBar
+                val click = if (beatIndex == 0) accentedSamples else unaccentedSamples
+
+                // Write the click audio
+                val written = writeAll(track, click)
+                if (written < 0) break
+
+                // Notify main thread
+                val beat = beatIndex
+                handler.post {
+                    if (playing) {
+                        onBeat?.invoke(beat)
+                        currentBeat = beat
+                    }
+                }
+                beatCount++
+
+                // Write silence for the rest of the interval, paced by audio clock
+                val intervalMs = (60000.0 / currentBpm).toLong()
+                val totalSamples = (sampleRate * intervalMs / 1000).toInt()
+                val silenceSamples = totalSamples - click.size
+
+                if (silenceSamples > 0) {
+                    // Write silence in small chunks to stay responsive to stop/BPM changes
+                    val chunkSize = sampleRate / 10 // ~100ms chunks
+                    val silenceChunk = ShortArray(chunkSize)
+                    var remaining = silenceSamples
+                    while (remaining > 0 && playing) {
+                        val toWrite = minOf(remaining, chunkSize)
+                        val w = track.write(silenceChunk, 0, toWrite)
+                        if (w < 0) break
+                        remaining -= w
+                    }
+                }
+            }
+        }.apply {
+            name = "MetronomeAudio"
+            isDaemon = true
+            start()
+        }
+    }
+
+    private fun writeAll(track: AudioTrack, samples: ShortArray): Int {
+        var offset = 0
+        while (offset < samples.size) {
+            val w = track.write(samples, offset, samples.size - offset)
+            if (w < 0) return w
+            offset += w
+        }
+        return offset
     }
 
     fun stop() {
         playing = false
-        handler.removeCallbacksAndMessages(null)
+        // Unblock audio thread if it's stuck in write()
         try {
             audioTrack?.pause()
             audioTrack?.flush()
         } catch (_: Exception) {}
+        audioThread?.join(200)
+        audioThread = null
     }
 
     fun setTempo(newBpm: Int) {
         bpm = newBpm.coerceIn(20, 300)
-        if (playing) {
-            nextBeatTime = 0L
-            scheduleCount = 0
-            handler.removeCallbacksAndMessages(null)
-            scheduleNextBeat()
-        }
+        volBpm = bpm
     }
 
     fun setTimeSignature(beats: Int, unit: Int) {
         beatsPerBar = beats.coerceIn(1, 12)
         beatUnit = unit
+        volBeatsPerBar = beatsPerBar
         if (!playing) {
             currentBeat = 0
         }
@@ -141,37 +198,5 @@ class MetronomeEngine {
             audioTrack?.release()
         } catch (_: Exception) {}
         audioTrack = null
-    }
-
-    private fun scheduleNextBeat() {
-        if (!playing) return
-
-        val intervalMs = (60000.0 / bpm).toLong()
-        val now = SystemClock.elapsedRealtime()
-
-        if (nextBeatTime == 0L) {
-            nextBeatTime = now
-        }
-
-        // Determine which sample to play for this beat
-        val beatIndex = scheduleCount % beatsPerBar
-        val samples = if (beatIndex == 0) accentedSamples else unaccentedSamples
-        audioTrack?.write(samples, 0, samples.size)
-
-        onBeat?.invoke(beatIndex)
-        currentBeat = beatIndex
-        scheduleCount++
-
-        nextBeatTime += intervalMs
-
-        // Drift compensation: if we're more than 1 interval behind, reset
-        var delay = nextBeatTime - SystemClock.elapsedRealtime()
-        if (delay < -intervalMs) {
-            nextBeatTime = SystemClock.elapsedRealtime() + intervalMs
-            delay = intervalMs
-        }
-        if (delay < 0) delay = 0
-
-        handler.postDelayed({ scheduleNextBeat() }, delay)
     }
 }

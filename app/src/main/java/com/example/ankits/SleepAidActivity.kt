@@ -1,8 +1,10 @@
 package com.example.ankits
 
 import android.app.AlertDialog
+import android.content.ComponentName
 import android.content.Context
-import android.media.AudioAttributes
+import android.content.Intent
+import android.content.ServiceConnection
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -11,6 +13,7 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
 import android.provider.OpenableColumns
 import android.view.View
@@ -43,13 +46,11 @@ class SleepAidActivity : AppCompatActivity() {
     }
 
     private lateinit var binding: ActivitySleepAidBinding
-    private val engine = SleepAidEngine()
+    private var service: SleepAidService? = null
     private val handler = Handler(Looper.getMainLooper())
     private val random = Random()
     private val prefs by lazy { getSharedPreferences("sleep_aid", MODE_PRIVATE) }
 
-    private var isPlaying = false
-    private var mediaPlayer: MediaPlayer? = null
     private var currentTrackIndex = -1
     private var shuffleEnabled = false
 
@@ -63,14 +64,9 @@ class SleepAidActivity : AppCompatActivity() {
 
     private val importedAudioList = mutableListOf<ImportedAudio>()
 
-    private var timerDurationMs = 0L
-    private var timerRemainingMs = 0L
-    private var timerTickRunnable: Runnable? = null
-    private var fadeOutRunnable: Runnable? = null
-    private var isFadingOut = false
-    private var fadeOutEnabled = true
     private var selectedTimerMinutes = 30
     private var isCustomTimer = false
+    private var fadeOutEnabled = true
 
     private val soundToggles = mutableMapOf<SoundType, SwitchCompat>()
     private val soundSeekBars = mutableMapOf<SoundType, SeekBar>()
@@ -84,6 +80,31 @@ class SleepAidActivity : AppCompatActivity() {
     private val videoPickLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri -> if (uri != null) extractAudioFromVideo(uri) }
+
+    private var statePushedToService = false
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            service = (binder as SleepAidService.LocalBinder).getService()
+            service?.onStateChanged = { handler.post { syncUiFromService() } }
+            service?.onTimerTick = { remaining ->
+                handler.post { updateTimerDisplay(remaining) }
+            }
+            if (service?.isPlaying == true) {
+                pullStateFromService()
+            } else if (!statePushedToService) {
+                pushStateToService()
+                statePushedToService = true
+            }
+            syncUiFromService()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            service?.onStateChanged = null
+            service?.onTimerTick = null
+            service = null
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -106,16 +127,34 @@ class SleepAidActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        bindService(
+            Intent(this, SleepAidService::class.java),
+            serviceConnection,
+            Context.BIND_AUTO_CREATE
+        )
+    }
+
+    override fun onResume() {
+        super.onResume()
+        syncUiFromService()
+    }
+
     override fun onPause() {
         super.onPause()
         saveSessionState()
-        if (isPlaying) stopPlayback()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        service?.onStateChanged = null
+        service?.onTimerTick = null
+        unbindService(serviceConnection)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        stopPlayback()
-        engine.release()
         handler.removeCallbacksAndMessages(null)
     }
 
@@ -161,8 +200,6 @@ class SleepAidActivity : AppCompatActivity() {
 
     private fun setupBuiltinSounds() {
         for (type in SoundType.entries) {
-            val channel = engine.getChannel(type)
-
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = android.view.Gravity.CENTER_VERTICAL
@@ -172,7 +209,7 @@ class SleepAidActivity : AppCompatActivity() {
 
             val toggle = SwitchCompat(this).apply {
                 setOnCheckedChangeListener { _, isChecked ->
-                    channel.enabled = isChecked
+                    service?.engine?.getChannel(type)?.enabled = isChecked
                 }
             }
             soundToggles[type] = toggle
@@ -197,7 +234,9 @@ class SleepAidActivity : AppCompatActivity() {
                 layoutParams = params
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(seek: SeekBar, progress: Int, fromUser: Boolean) {
-                        if (fromUser) channel.volume = progress / 100f
+                        if (fromUser) {
+                            service?.engine?.getChannel(type)?.volume = progress / 100f
+                        }
                     }
                     override fun onStartTrackingTouch(seek: SeekBar) {}
                     override fun onStopTrackingTouch(seek: SeekBar) {}
@@ -227,6 +266,7 @@ class SleepAidActivity : AppCompatActivity() {
         }
         binding.shuffleToggle.setOnCheckedChangeListener { _, checked ->
             shuffleEnabled = checked
+            service?.shuffleEnabled = checked
         }
         binding.myAudioHeader.setOnClickListener {
             toggleVisibility(binding.myAudioContent, binding.myAudioChevron)
@@ -234,46 +274,57 @@ class SleepAidActivity : AppCompatActivity() {
     }
 
     private fun importAudioFromUri(uri: Uri) {
-        try {
-            val displayName = queryDisplayName(uri)
-            val destDir = File(filesDir, "sleep_aid")
-            destDir.mkdirs()
-            val ext = displayName.substringAfterLast('.', "mp3")
-            val destFile = File(destDir, "${UUID.randomUUID()}.$ext")
-
-            contentResolver.openInputStream(uri)?.use { input ->
-                destFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            } ?: run {
-                showToast(getString(R.string.sleep_aid_import_failed))
-                return
-            }
-
-            var durationMs = 0L
+        showToast(getString(R.string.sleep_aid_importing))
+        Thread {
             try {
-                val mp = MediaPlayer().apply {
-                    setDataSource(destFile.absolutePath)
-                    prepare()
-                }
-                durationMs = mp.duration.toLong()
-                mp.release()
-            } catch (_: Exception) {}
+                val displayName = queryDisplayName(uri)
+                val destDir = File(filesDir, "sleep_aid")
+                destDir.mkdirs()
+                val ext = displayName.substringAfterLast('.', "mp3")
+                val destFile = File(destDir, "${UUID.randomUUID()}.$ext")
 
-            val audio = ImportedAudio(
-                id = UUID.randomUUID().toString(),
-                displayName = displayName.substringBeforeLast('.'),
-                filePath = destFile.absolutePath,
-                durationMs = durationMs,
-                importTimeMs = System.currentTimeMillis()
-            )
-            importedAudioList.add(audio)
-            saveImportedAudio()
-            refreshImportedAudioListUI()
-            showToast(getString(R.string.sleep_aid_import_success))
-        } catch (e: Exception) {
-            showToast(getString(R.string.sleep_aid_import_failed))
-        }
+                contentResolver.openInputStream(uri)?.use { input ->
+                    destFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                } ?: run {
+                    handler.post { showToast(getString(R.string.sleep_aid_import_failed)) }
+                    return@Thread
+                }
+
+                var durationMs = 0L
+                try {
+                    val mp = MediaPlayer().apply {
+                        setDataSource(destFile.absolutePath)
+                        prepare()
+                    }
+                    durationMs = mp.duration.toLong()
+                    mp.release()
+                } catch (_: Exception) {}
+
+                handler.post {
+                    val audio = ImportedAudio(
+                        id = UUID.randomUUID().toString(),
+                        displayName = displayName.substringBeforeLast('.'),
+                        filePath = destFile.absolutePath,
+                        durationMs = durationMs,
+                        importTimeMs = System.currentTimeMillis()
+                    )
+                    importedAudioList.add(audio)
+                    saveImportedAudio()
+                    refreshImportedAudioListUI()
+                    showToast(getString(R.string.sleep_aid_import_success))
+                }
+            } catch (e: SecurityException) {
+                handler.post {
+                    showToast(getString(R.string.sleep_aid_import_permission_error))
+                }
+            } catch (e: Exception) {
+                handler.post {
+                    showToast(getString(R.string.sleep_aid_import_failed))
+                }
+            }
+        }.start()
     }
 
     private fun extractAudioFromVideo(uri: Uri) {
@@ -407,7 +458,14 @@ class SleepAidActivity : AppCompatActivity() {
             row.setOnClickListener {
                 currentTrackIndex = index
                 refreshImportedAudioListUI()
-                if (isPlaying) playImportedAudio(index)
+                if (service?.isPlaying == true) {
+                    service?.syncImportedAudio(
+                        importedAudioList.map { it.filePath },
+                        index,
+                        shuffleEnabled
+                    )
+                    service?.playImportedAudio(index)
+                }
             }
 
             row.addView(name)
@@ -419,7 +477,7 @@ class SleepAidActivity : AppCompatActivity() {
     private fun deleteImportedAudio(index: Int) {
         val audio = importedAudioList[index]
         if (index == currentTrackIndex) {
-            stopImportedAudio()
+            service?.stopImportedAudio()
             currentTrackIndex = -1
         }
         try { File(audio.filePath).delete() } catch (_: Exception) {}
@@ -446,9 +504,8 @@ class SleepAidActivity : AppCompatActivity() {
                 setOnClickListener {
                     isCustomTimer = false
                     selectedTimerMinutes = min
-                    timerDurationMs = min * 60 * 1000L
                     binding.customTimerRow.visibility = View.GONE
-                    updateTimerDisplay()
+                    updateTimerSelection()
                 }
             }
             timerChips.add(chip)
@@ -462,8 +519,7 @@ class SleepAidActivity : AppCompatActivity() {
                 isCustomTimer = true
                 selectedTimerMinutes = binding.timerMinutesPicker.value
                 binding.customTimerRow.visibility = View.VISIBLE
-                timerDurationMs = selectedTimerMinutes * 60 * 1000L
-                updateTimerDisplay()
+                updateTimerSelection()
             }
         }
         this.customTimerChip = customChip
@@ -475,10 +531,7 @@ class SleepAidActivity : AppCompatActivity() {
         binding.timerMinutesPicker.value = selectedTimerMinutes
         binding.timerMinutesPicker.setOnValueChangedListener { _, _, newVal ->
             selectedTimerMinutes = newVal
-            if (isCustomTimer) {
-                timerDurationMs = newVal * 60 * 1000L
-                updateTimerDisplay()
-            }
+            if (isCustomTimer) updateTimerSelection()
         }
 
         binding.fadeOutToggle.setOnCheckedChangeListener { _, checked ->
@@ -490,20 +543,29 @@ class SleepAidActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateTimerDisplay() {
-        if (timerRemainingMs <= 0 && !isPlaying) {
+    private fun updateTimerSelection() {
+        val durationMs = selectedTimerMinutes * 60 * 1000L
+        service?.setTimer(durationMs, fadeOutEnabled)
+        binding.timerRemainingText.text = getString(R.string.sleep_aid_timer_off)
+        binding.timerRemainingText.setTextColor(
+            ContextCompat.getColor(this, R.color.on_surface_variant)
+        )
+    }
+
+    private fun updateTimerDisplay(remainingMs: Long) {
+        if (remainingMs <= 0) {
             binding.timerRemainingText.text = getString(R.string.sleep_aid_timer_off)
             binding.timerRemainingText.setTextColor(
                 ContextCompat.getColor(this, R.color.on_surface_variant)
             )
             return
         }
-        val totalSec = (timerRemainingMs / 1000).toInt()
+        val totalSec = (remainingMs / 1000).toInt()
         val min = totalSec / 60
         val sec = totalSec % 60
         binding.timerRemainingText.text = getString(R.string.sleep_aid_timer_remaining, min, sec)
 
-        val color = if (isFadingOut) R.color.error else R.color.on_surface_variant
+        val color = if (service?.isFadingOut == true) R.color.error else R.color.on_surface_variant
         binding.timerRemainingText.setTextColor(ContextCompat.getColor(this, color))
     }
 
@@ -511,332 +573,99 @@ class SleepAidActivity : AppCompatActivity() {
 
     private fun setupPlayButton() {
         binding.playBtn.setOnClickListener {
-            if (isPlaying) stopPlayback() else startPlayback()
-        }
-    }
+            val s = service ?: return@setOnClickListener
 
-    private fun startPlayback() {
-        val hasBuiltin = engine.channels.any { it.enabled }
-        val hasImported = currentTrackIndex in importedAudioList.indices
+            if (s.isPlaying) {
+                s.stopPlayback()
+                syncUiFromService()
+            } else {
+                val hasBuiltin = s.engine.channels.any { it.enabled }
+                val hasImported = importedAudioList.isNotEmpty()
 
-        if (!hasBuiltin && !hasImported) {
-            showToast(getString(R.string.sleep_aid_no_selection))
-            return
-        }
-
-        if (hasBuiltin) {
-            if (!engine.start()) {
-                showToast(getString(R.string.sleep_aid_audio_init_failed))
-                return
-            }
-        }
-
-        if (hasImported) {
-            playImportedAudio(currentTrackIndex)
-        }
-
-        if (timerDurationMs > 0) startTimer(timerDurationMs)
-
-        isPlaying = true
-        binding.playBtn.text = getString(R.string.sleep_aid_stop)
-        setKeepScreenOn()
-    }
-
-    private fun stopPlayback() {
-        engine.stop()
-
-        stopImportedAudio()
-
-        timerTickRunnable?.let { handler.removeCallbacks(it) }
-        timerTickRunnable = null
-        fadeOutRunnable?.let { handler.removeCallbacks(it) }
-        fadeOutRunnable = null
-        isFadingOut = false
-        timerRemainingMs = 0L
-        updateTimerDisplay()
-        binding.timerChips.clearCheck()
-
-        isPlaying = false
-        binding.playBtn.text = getString(R.string.sleep_aid_play)
-        clearKeepScreenOn()
-    }
-
-    // --- Imported Audio Playback ---
-
-    private fun playImportedAudio(index: Int) {
-        stopImportedAudio()
-        if (index !in importedAudioList.indices) return
-
-        val audio = importedAudioList[index]
-        currentTrackIndex = index
-
-        mediaPlayer = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build()
-            )
-            setDataSource(audio.filePath)
-            setOnPreparedListener { it.start() }
-            setOnCompletionListener { advanceToNextTrack() }
-            setOnErrorListener { _, _, _ -> advanceToNextTrack(); true }
-            prepareAsync()
-        }
-
-        refreshImportedAudioListUI()
-    }
-
-    private fun stopImportedAudio() {
-        try {
-            mediaPlayer?.stop()
-            mediaPlayer?.release()
-        } catch (_: Exception) {}
-        mediaPlayer = null
-    }
-
-    private fun advanceToNextTrack() {
-        if (importedAudioList.isEmpty()) return
-
-        val next = if (shuffleEnabled) {
-            if (importedAudioList.size == 1) 0
-            else {
-                var r = random.nextInt(importedAudioList.size)
-                while (r == currentTrackIndex && importedAudioList.size > 1) {
-                    r = random.nextInt(importedAudioList.size)
+                if (!hasBuiltin && !hasImported) {
+                    showToast(getString(R.string.sleep_aid_no_selection))
+                    return@setOnClickListener
                 }
-                r
+
+                // Set timer
+                val durationMs = if (binding.timerChips.checkedChipId != View.NO_ID) {
+                    selectedTimerMinutes * 60 * 1000L
+                } else {
+                    0L
+                }
+                s.setTimer(durationMs, fadeOutEnabled)
+
+                // Sync imported audio
+                s.syncImportedAudio(
+                    importedAudioList.map { it.filePath },
+                    currentTrackIndex,
+                    shuffleEnabled
+                )
+
+                // Start the service explicitly so it survives unbinding
+                startService(Intent(this, SleepAidService::class.java))
+                statePushedToService = true
+
+                if (!s.startPlayback()) {
+                    showToast(getString(R.string.sleep_aid_audio_init_failed))
+                    return@setOnClickListener
+                }
+                syncUiFromService()
+                setKeepScreenOn()
             }
+        }
+
+        binding.skipPrevBtn.setOnClickListener {
+            service?.skipToPrevious()
+            service?.let { currentTrackIndex = it.currentTrackIndex }
+            syncUiFromService()
+            refreshImportedAudioListUI()
+        }
+
+        binding.skipNextBtn.setOnClickListener {
+            service?.skipToNext()
+            service?.let { currentTrackIndex = it.currentTrackIndex }
+            syncUiFromService()
+            refreshImportedAudioListUI()
+        }
+    }
+
+    private fun syncUiFromService() {
+        val s = service ?: return
+        val hasMultipleTracks = importedAudioList.size > 1
+        if (s.isPlaying) {
+            binding.playBtn.text = getString(R.string.sleep_aid_stop)
+            setKeepScreenOn()
         } else {
-            (currentTrackIndex + 1) % importedAudioList.size
+            binding.playBtn.text = getString(R.string.sleep_aid_play)
+            clearKeepScreenOn()
         }
-
-        currentTrackIndex = next
-        playImportedAudio(next)
+        binding.skipPrevBtn.visibility = if (hasMultipleTracks) View.VISIBLE else View.GONE
+        binding.skipNextBtn.visibility = if (hasMultipleTracks) View.VISIBLE else View.GONE
     }
 
-    // --- Timer Logic ---
-
-    private fun startTimer(durationMs: Long) {
-        timerRemainingMs = durationMs
-        isFadingOut = false
-        updateTimerDisplay()
-
-        timerTickRunnable?.let { handler.removeCallbacks(it) }
-        timerTickRunnable = object : Runnable {
-            override fun run() {
-                timerRemainingMs -= 1000
-
-                if (timerRemainingMs <= 0) {
-                    stopPlayback()
-                    timerRemainingMs = 0L
-                    updateTimerDisplay()
-                    return
-                }
-
-                if (fadeOutEnabled && !isFadingOut && timerRemainingMs <= 30000) {
-                    beginFadeOut(timerRemainingMs)
-                }
-
-                updateTimerDisplay()
-                handler.postDelayed(this, 1000)
-            }
-        }
-        handler.postDelayed(timerTickRunnable!!, 1000)
-    }
-
-    private fun beginFadeOut(durationMs: Long) {
-        isFadingOut = true
-        updateTimerDisplay()
-        engine.startFadeOut()
-
-        val steps = (durationMs / 50).coerceIn(1, 600)
-        val stepMs = durationMs / steps
-        val increment = 1f / steps
-
-        fadeOutRunnable?.let { handler.removeCallbacks(it) }
-        var step = 0
-        fadeOutRunnable = object : Runnable {
-            override fun run() {
-                step++
-                engine.fadeProgress = (increment * step).coerceAtMost(1f)
-                val mpVol = (1f - engine.fadeProgress).coerceAtLeast(0f)
-                try { mediaPlayer?.setVolume(mpVol, mpVol) } catch (_: Exception) {}
-                if (step < steps && engine.isPlaying) {
-                    handler.postDelayed(this, stepMs)
-                }
-            }
-        }
-        handler.postDelayed(fadeOutRunnable!!, stepMs)
-    }
-
-    // --- Session State Persistence ---
-
-    private fun saveSessionState() {
-        val editor = prefs.edit()
+    private fun pushStateToService() {
+        val s = service ?: return
         for (type in SoundType.entries) {
-            editor.putBoolean("session_sound_${type.name}_enabled", soundToggles[type]?.isChecked ?: false)
-            editor.putFloat("session_sound_${type.name}_volume", engine.getChannel(type).volume)
+            val enabled = soundToggles[type]?.isChecked ?: false
+            val volume = (soundSeekBars[type]?.progress ?: 50) / 100f
+            s.engine.getChannel(type).enabled = enabled
+            s.engine.getChannel(type).volume = volume
         }
-        editor.putInt("session_timer_minutes", selectedTimerMinutes)
-        editor.putBoolean("session_timer_custom", isCustomTimer)
-        editor.putBoolean("session_fade_out", fadeOutEnabled)
-        editor.putBoolean("session_shuffle", shuffleEnabled)
-        editor.putFloat("session_master_volume", engine.masterVolume)
-        editor.apply()
+        s.shuffleEnabled = shuffleEnabled
+        s.syncImportedAudio(importedAudioList.map { it.filePath }, currentTrackIndex, shuffleEnabled)
     }
 
-    private fun loadSessionState() {
+    private fun pullStateFromService() {
+        val s = service ?: return
         for (type in SoundType.entries) {
-            val enabled = prefs.getBoolean("session_sound_${type.name}_enabled", false)
-            val volume = prefs.getFloat("session_sound_${type.name}_volume", defaultVolumes[type]!!)
-            val channel = engine.getChannel(type)
-            channel.enabled = enabled
-            channel.volume = volume
-            soundToggles[type]?.isChecked = enabled
-            soundSeekBars[type]?.progress = (volume * 100).toInt()
+            val ch = s.engine.getChannel(type)
+            soundToggles[type]?.isChecked = ch.enabled
+            soundSeekBars[type]?.progress = (ch.volume * 100).toInt()
         }
-
-        selectedTimerMinutes = prefs.getInt("session_timer_minutes", 30)
-        isCustomTimer = prefs.getBoolean("session_timer_custom", false)
-        fadeOutEnabled = prefs.getBoolean("session_fade_out", true)
-        shuffleEnabled = prefs.getBoolean("session_shuffle", false)
-
-        applyTimerUIState()
-        binding.fadeOutToggle.isChecked = fadeOutEnabled
+        shuffleEnabled = s.shuffleEnabled
         binding.shuffleToggle.isChecked = shuffleEnabled
-        engine.masterVolume = prefs.getFloat("session_master_volume", 1f)
-    }
-
-    // --- Habits Persistence ---
-
-    private fun saveHabits() {
-        val editor = prefs.edit()
-        for (type in SoundType.entries) {
-            editor.putBoolean("habit_sound_${type.name}_enabled", soundToggles[type]?.isChecked ?: false)
-            editor.putFloat("habit_sound_${type.name}_volume", engine.getChannel(type).volume)
-        }
-        editor.putInt("habit_timer_minutes", selectedTimerMinutes)
-        editor.putBoolean("habit_timer_custom", isCustomTimer)
-        editor.putBoolean("habit_fade_out", fadeOutEnabled)
-        editor.putBoolean("habit_shuffle", shuffleEnabled)
-        editor.putBoolean("habits_configured", true)
-        editor.apply()
-    }
-
-    private fun loadHabits(): Boolean {
-        if (!prefs.getBoolean("habits_configured", false)) return false
-
-        for (type in SoundType.entries) {
-            val enabled = prefs.getBoolean("habit_sound_${type.name}_enabled", false)
-            val volume = prefs.getFloat("habit_sound_${type.name}_volume", defaultVolumes[type]!!)
-            val channel = engine.getChannel(type)
-            channel.enabled = enabled
-            channel.volume = volume
-            soundToggles[type]?.isChecked = enabled
-            soundSeekBars[type]?.progress = (volume * 100).toInt()
-        }
-
-        selectedTimerMinutes = prefs.getInt("habit_timer_minutes", 30)
-        isCustomTimer = prefs.getBoolean("habit_timer_custom", false)
-        fadeOutEnabled = prefs.getBoolean("habit_fade_out", true)
-        shuffleEnabled = prefs.getBoolean("habit_shuffle", false)
-
-        applyTimerUIState()
-        binding.fadeOutToggle.isChecked = fadeOutEnabled
-        binding.shuffleToggle.isChecked = shuffleEnabled
-        return true
-    }
-
-    private fun loadHabitsOrDefaults() {
-        if (!loadHabits()) {
-            for (type in SoundType.entries) {
-                val channel = engine.getChannel(type)
-                channel.volume = defaultVolumes[type]!!
-                channel.enabled = false
-                soundToggles[type]?.isChecked = false
-                soundSeekBars[type]?.progress = (channel.volume * 100).toInt()
-            }
-            selectedTimerMinutes = 30
-            isCustomTimer = false
-            fadeOutEnabled = true
-            shuffleEnabled = false
-            applyTimerUIState()
-            binding.fadeOutToggle.isChecked = true
-            binding.shuffleToggle.isChecked = false
-        }
-    }
-
-    private fun clearHabits() {
-        val editor = prefs.edit()
-        editor.putBoolean("habits_configured", false)
-        editor.remove("habit_timer_minutes")
-        editor.remove("habit_timer_custom")
-        editor.remove("habit_fade_out")
-        editor.remove("habit_shuffle")
-        for (type in SoundType.entries) {
-            editor.remove("habit_sound_${type.name}_enabled")
-            editor.remove("habit_sound_${type.name}_volume")
-        }
-        editor.apply()
-    }
-
-    private fun applyTimerUIState() {
-        for ((i, chip) in timerChips.withIndex()) {
-            chip.isChecked = false
-        }
-
-        if (isCustomTimer) {
-            customTimerChip?.isChecked = true
-            binding.customTimerRow.visibility = View.VISIBLE
-            binding.timerMinutesPicker.value = selectedTimerMinutes
-            timerDurationMs = selectedTimerMinutes * 60 * 1000L
-        } else {
-            val idx = chipDurations.indexOfFirst { it.first == selectedTimerMinutes }
-            if (idx >= 0) {
-                timerChips[idx].isChecked = true
-                binding.customTimerRow.visibility = View.GONE
-            }
-            timerDurationMs = selectedTimerMinutes * 60 * 1000L
-        }
-        updateTimerDisplay()
-    }
-
-    // --- Settings Dialog ---
-
-    private fun showSettingsDialog() {
-        val hasHabits = prefs.getBoolean("habits_configured", false)
-        val items = mutableListOf(
-            getString(R.string.sleep_aid_save_as_habit)
-        )
-        if (hasHabits) {
-            items.add(getString(R.string.sleep_aid_clear_habits))
-        }
-        items.add(getString(R.string.sleep_aid_restore_defaults))
-
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.sleep_aid_settings_title))
-            .setItems(items.toTypedArray()) { _, which ->
-                when (items[which]) {
-                    getString(R.string.sleep_aid_save_as_habit) -> {
-                        saveHabits()
-                        showToast(getString(R.string.sleep_aid_habit_saved))
-                    }
-                    getString(R.string.sleep_aid_clear_habits) -> {
-                        clearHabits()
-                        showToast(getString(R.string.sleep_aid_habits_cleared))
-                    }
-                    getString(R.string.sleep_aid_restore_defaults) -> {
-                        if (hasHabits) {
-                            loadHabits()
-                        } else {
-                            showToast(getString(R.string.sleep_aid_no_habits))
-                        }
-                    }
-                }
-            }
-            .setNegativeButton("关闭", null)
-            .show()
+        currentTrackIndex = s.currentTrackIndex
     }
 
     // --- Imported Audio Persistence ---
@@ -874,6 +703,178 @@ class SleepAidActivity : AppCompatActivity() {
             importedAudioList.clear()
         }
         refreshImportedAudioListUI()
+    }
+
+    // --- Session State Persistence ---
+
+    private fun saveSessionState() {
+        val editor = prefs.edit()
+        for (type in SoundType.entries) {
+            editor.putBoolean("session_sound_${type.name}_enabled", soundToggles[type]?.isChecked ?: false)
+            editor.putFloat("session_sound_${type.name}_volume", service?.engine?.getChannel(type)?.volume ?: defaultVolumes[type]!!)
+        }
+        editor.putInt("session_timer_minutes", selectedTimerMinutes)
+        editor.putBoolean("session_timer_custom", isCustomTimer)
+        editor.putBoolean("session_fade_out", fadeOutEnabled)
+        editor.putBoolean("session_shuffle", shuffleEnabled)
+        editor.apply()
+    }
+
+    private fun loadSessionState() {
+        for (type in SoundType.entries) {
+            val enabled = prefs.getBoolean("session_sound_${type.name}_enabled", false)
+            val volume = prefs.getFloat("session_sound_${type.name}_volume", defaultVolumes[type]!!)
+            soundToggles[type]?.isChecked = enabled
+            soundSeekBars[type]?.progress = (volume * 100).toInt()
+            service?.engine?.getChannel(type)?.apply {
+                this.enabled = enabled
+                this.volume = volume
+            }
+        }
+
+        selectedTimerMinutes = prefs.getInt("session_timer_minutes", 30)
+        isCustomTimer = prefs.getBoolean("session_timer_custom", false)
+        fadeOutEnabled = prefs.getBoolean("session_fade_out", true)
+        shuffleEnabled = prefs.getBoolean("session_shuffle", false)
+
+        applyTimerUIState()
+        binding.fadeOutToggle.isChecked = fadeOutEnabled
+        binding.shuffleToggle.isChecked = shuffleEnabled
+    }
+
+    // --- Habits Persistence ---
+
+    private fun saveHabits() {
+        val editor = prefs.edit()
+        for (type in SoundType.entries) {
+            editor.putBoolean("habit_sound_${type.name}_enabled", soundToggles[type]?.isChecked ?: false)
+            editor.putFloat("habit_sound_${type.name}_volume", service?.engine?.getChannel(type)?.volume ?: defaultVolumes[type]!!)
+        }
+        editor.putInt("habit_timer_minutes", selectedTimerMinutes)
+        editor.putBoolean("habit_timer_custom", isCustomTimer)
+        editor.putBoolean("habit_fade_out", fadeOutEnabled)
+        editor.putBoolean("habit_shuffle", shuffleEnabled)
+        editor.putBoolean("habits_configured", true)
+        editor.apply()
+    }
+
+    private fun loadHabits(): Boolean {
+        if (!prefs.getBoolean("habits_configured", false)) return false
+
+        for (type in SoundType.entries) {
+            val enabled = prefs.getBoolean("habit_sound_${type.name}_enabled", false)
+            val volume = prefs.getFloat("habit_sound_${type.name}_volume", defaultVolumes[type]!!)
+            soundToggles[type]?.isChecked = enabled
+            soundSeekBars[type]?.progress = (volume * 100).toInt()
+            service?.engine?.getChannel(type)?.apply {
+                this.enabled = enabled
+                this.volume = volume
+            }
+        }
+
+        selectedTimerMinutes = prefs.getInt("habit_timer_minutes", 30)
+        isCustomTimer = prefs.getBoolean("habit_timer_custom", false)
+        fadeOutEnabled = prefs.getBoolean("habit_fade_out", true)
+        shuffleEnabled = prefs.getBoolean("habit_shuffle", false)
+
+        applyTimerUIState()
+        binding.fadeOutToggle.isChecked = fadeOutEnabled
+        binding.shuffleToggle.isChecked = shuffleEnabled
+        return true
+    }
+
+    private fun loadHabitsOrDefaults() {
+        if (!loadHabits()) {
+            for (type in SoundType.entries) {
+                val volume = defaultVolumes[type]!!
+                soundToggles[type]?.isChecked = false
+                soundSeekBars[type]?.progress = (volume * 100).toInt()
+                service?.engine?.getChannel(type)?.apply {
+                    this.volume = volume
+                    this.enabled = false
+                }
+            }
+            selectedTimerMinutes = 30
+            isCustomTimer = false
+            fadeOutEnabled = true
+            shuffleEnabled = false
+            applyTimerUIState()
+            binding.fadeOutToggle.isChecked = true
+            binding.shuffleToggle.isChecked = false
+        }
+    }
+
+    private fun clearHabits() {
+        val editor = prefs.edit()
+        editor.putBoolean("habits_configured", false)
+        editor.remove("habit_timer_minutes")
+        editor.remove("habit_timer_custom")
+        editor.remove("habit_fade_out")
+        editor.remove("habit_shuffle")
+        for (type in SoundType.entries) {
+            editor.remove("habit_sound_${type.name}_enabled")
+            editor.remove("habit_sound_${type.name}_volume")
+        }
+        editor.apply()
+    }
+
+    private fun applyTimerUIState() {
+        for (chip in timerChips) {
+            chip.isChecked = false
+        }
+
+        if (isCustomTimer) {
+            customTimerChip?.isChecked = true
+            binding.customTimerRow.visibility = View.VISIBLE
+            binding.timerMinutesPicker.value = selectedTimerMinutes
+        } else {
+            val idx = chipDurations.indexOfFirst { it.first == selectedTimerMinutes }
+            if (idx >= 0) {
+                timerChips[idx].isChecked = true
+                binding.customTimerRow.visibility = View.GONE
+            }
+        }
+        binding.timerRemainingText.text = getString(R.string.sleep_aid_timer_off)
+        binding.timerRemainingText.setTextColor(
+            ContextCompat.getColor(this, R.color.on_surface_variant)
+        )
+    }
+
+    // --- Settings Dialog ---
+
+    private fun showSettingsDialog() {
+        val hasHabits = prefs.getBoolean("habits_configured", false)
+        val items = mutableListOf(
+            getString(R.string.sleep_aid_save_as_habit)
+        )
+        if (hasHabits) {
+            items.add(getString(R.string.sleep_aid_clear_habits))
+        }
+        items.add(getString(R.string.sleep_aid_restore_defaults))
+
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.sleep_aid_settings_title))
+            .setItems(items.toTypedArray()) { _, which ->
+                when (items[which]) {
+                    getString(R.string.sleep_aid_save_as_habit) -> {
+                        saveHabits()
+                        showToast(getString(R.string.sleep_aid_habit_saved))
+                    }
+                    getString(R.string.sleep_aid_clear_habits) -> {
+                        clearHabits()
+                        showToast(getString(R.string.sleep_aid_habits_cleared))
+                    }
+                    getString(R.string.sleep_aid_restore_defaults) -> {
+                        if (hasHabits) {
+                            loadHabits()
+                        } else {
+                            showToast(getString(R.string.sleep_aid_no_habits))
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("关闭", null)
+            .show()
     }
 
     // --- Utility ---

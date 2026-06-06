@@ -3,11 +3,7 @@ package com.example.ankits
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
-import kotlin.math.PI
-import kotlin.math.exp
-import kotlin.math.sin
-import kotlin.math.sqrt
-import java.util.Random
+import java.io.File
 
 class SleepAidEngine {
 
@@ -15,6 +11,7 @@ class SleepAidEngine {
         const val SAMPLE_RATE = 44100
         private const val CHUNK_SIZE = 2048
         private const val BUFFER_MULTIPLIER = 3
+        private const val MAX_WAV_DATA_SIZE = 50 * 1024 * 1024 // 50MB PCM data (~10 min)
     }
 
     enum class SoundType {
@@ -25,30 +22,8 @@ class SleepAidEngine {
     inner class SoundChannel(val type: SoundType) {
         @Volatile var enabled: Boolean = false
         @Volatile var volume: Float = 0.5f
-        val random = Random()
-
-        // Pink noise state
-        val pinkValues = FloatArray(7) { random.nextFloat() * 2f - 1f }
-        var pinkCounter = 0
-
-        // Brown noise state
-        var brownPrev = 0.0
-
-        // Rain state
-        var rainPhase = 0.0
-
-        // Ocean state
-        var oceanPhase = 0.0
-        var oceanLp = 0.0
-
-        // Fan state
-        var fanLp = 0.0
-        var fanBp = 0.0
-
-        // Singing bowl state
-        var bowlTime = 0.0
-        var bowlPhase = DoubleArray(8) { 0.0 }
-        var bowlSampleCount = 0
+        @Volatile var fileBuffer: FloatArray = FloatArray(0)
+        @Volatile var readIndex: Int = 0
     }
 
     val channels: List<SoundChannel> = SoundType.entries.map { SoundChannel(it) }
@@ -64,6 +39,58 @@ class SleepAidEngine {
     var onPlaybackStopped: (() -> Unit)? = null
 
     fun getChannel(type: SoundType): SoundChannel = channels.first { it.type == type }
+
+    fun loadFile(type: SoundType, path: String): Boolean {
+        val channel = getChannel(type)
+        val samples = parseWavFile(path)
+        if (samples.isEmpty()) return false
+        channel.fileBuffer = samples
+        channel.readIndex = 0
+        return true
+    }
+
+    private fun parseWavFile(path: String): FloatArray {
+        val bytes = try {
+            File(path).readBytes()
+        } catch (_: Exception) {
+            return FloatArray(0)
+        }
+        if (bytes.size < 44) return FloatArray(0)
+        if (bytes[0] != 'R'.code.toByte() || bytes[1] != 'I'.code.toByte() ||
+            bytes[2] != 'F'.code.toByte() || bytes[3] != 'F'.code.toByte()) return FloatArray(0)
+        if (bytes[8] != 'W'.code.toByte() || bytes[9] != 'A'.code.toByte() ||
+            bytes[10] != 'V'.code.toByte() || bytes[11] != 'E'.code.toByte()) return FloatArray(0)
+
+        var offset = 12
+        while (offset + 8 <= bytes.size) {
+            val chunkId = String(bytes, offset, 4)
+            val chunkSize = (bytes[offset + 4].toInt() and 0xFF) or
+                    ((bytes[offset + 5].toInt() and 0xFF) shl 8) or
+                    ((bytes[offset + 6].toInt() and 0xFF) shl 16) or
+                    ((bytes[offset + 7].toInt() and 0xFF) shl 24)
+
+            if (chunkId == "data") {
+                // Guard against OOM: reject files larger than 50MB of PCM data
+                if (chunkSize > MAX_WAV_DATA_SIZE) return FloatArray(0)
+
+                val sampleCount = chunkSize / 2
+                val samples = FloatArray(sampleCount)
+                var dataOffset = offset + 8
+                for (i in 0 until sampleCount) {
+                    if (dataOffset + 1 >= bytes.size) break
+                    val lo = bytes[dataOffset].toInt() and 0xFF
+                    val hi = bytes[dataOffset + 1].toInt() and 0xFF
+                    val sample = (lo or (hi shl 8)).toShort().toFloat() / Short.MAX_VALUE
+                    samples[i] = sample.coerceIn(-1f, 1f)
+                    dataOffset += 2
+                }
+                return samples
+            }
+            offset += 8 + chunkSize
+            if (chunkSize % 2 != 0) offset++
+        }
+        return FloatArray(0)
+    }
 
     private fun initAudioTrack(): Boolean {
         if (audioTrack?.state == AudioTrack.STATE_INITIALIZED) return true
@@ -185,122 +212,18 @@ class SleepAidEngine {
     }
 
     private fun fillChannelBuffer(ch: SoundChannel, buf: FloatArray) {
-        when (ch.type) {
-            SoundType.WHITE_NOISE -> fillWhiteNoise(ch, buf)
-            SoundType.PINK_NOISE -> fillPinkNoise(ch, buf)
-            SoundType.BROWN_NOISE -> fillBrownNoise(ch, buf)
-            SoundType.RAIN -> fillRain(ch, buf)
-            SoundType.OCEAN -> fillOcean(ch, buf)
-            SoundType.FAN -> fillFan(ch, buf)
-            SoundType.SINGING_BOWL -> fillSingingBowl(ch, buf)
+        val fb = ch.fileBuffer
+        if (fb.isEmpty()) {
+            buf.fill(0f)
+            return
         }
-    }
-
-    private fun fillWhiteNoise(ch: SoundChannel, buf: FloatArray) {
+        val fbLen = fb.size
+        var ri = ch.readIndex
         for (i in buf.indices) {
-            buf[i] = ch.random.nextFloat() * 2f - 1f
+            buf[i] = fb[ri]
+            ri++
+            if (ri >= fbLen) ri = 0
         }
-    }
-
-    private fun fillPinkNoise(ch: SoundChannel, buf: FloatArray) {
-        for (i in buf.indices) {
-            ch.pinkCounter++
-            var sum = 0f
-            var mask = 1
-            for (j in 0..6) {
-                if (ch.pinkCounter and mask != 0) {
-                    ch.pinkValues[j] = ch.random.nextFloat() * 2f - 1f
-                }
-                sum += ch.pinkValues[j]
-                mask = mask shl 1
-            }
-            buf[i] = sum / 7f
-        }
-    }
-
-    private fun fillBrownNoise(ch: SoundChannel, buf: FloatArray) {
-        for (i in buf.indices) {
-            val white = ch.random.nextFloat() * 2f - 1f
-            ch.brownPrev += white * 0.02
-            if (ch.brownPrev > 1.0) ch.brownPrev = 1.0
-            if (ch.brownPrev < -1.0) ch.brownPrev = -1.0
-            buf[i] = ch.brownPrev.toFloat()
-        }
-    }
-
-    private fun fillRain(ch: SoundChannel, buf: FloatArray) {
-        for (i in buf.indices) {
-            ch.pinkCounter++
-            var sum = 0f
-            var mask = 1
-            for (j in 0..6) {
-                if (ch.pinkCounter and mask != 0) {
-                    ch.pinkValues[j] = ch.random.nextFloat() * 2f - 1f
-                }
-                sum += ch.pinkValues[j]
-                mask = mask shl 1
-            }
-            val pink = sum / 7f
-            val mod = 0.6f + 0.4f * sin(ch.rainPhase).toFloat()
-            ch.rainPhase += 0.012
-            if (ch.rainPhase > 2.0 * PI) ch.rainPhase -= 2.0 * PI
-            buf[i] = pink * mod
-        }
-    }
-
-    private fun fillOcean(ch: SoundChannel, buf: FloatArray) {
-        for (i in buf.indices) {
-            val white = ch.random.nextFloat() * 2f - 1f
-            ch.brownPrev += white * 0.015
-            if (ch.brownPrev > 1.0) ch.brownPrev = 1.0
-            if (ch.brownPrev < -1.0) ch.brownPrev = -1.0
-            val brown = ch.brownPrev
-
-            ch.oceanLp += (brown - ch.oceanLp) * 0.002
-            val swell = 0.55f + 0.45f * sin(ch.oceanPhase).toFloat()
-            ch.oceanPhase += 0.00008
-            if (ch.oceanPhase > 2.0 * PI) ch.oceanPhase -= 2.0 * PI
-
-            buf[i] = (ch.oceanLp * swell).toFloat()
-        }
-    }
-
-    private fun fillFan(ch: SoundChannel, buf: FloatArray) {
-        for (i in buf.indices) {
-            val white = ch.random.nextFloat() * 2f - 1f
-            ch.fanLp += (white - ch.fanLp) * 0.08
-            ch.fanBp += (ch.fanLp - ch.fanBp) * 0.08
-            buf[i] = ((ch.fanLp - ch.fanBp) * 4.0).coerceIn(-1.0, 1.0).toFloat()
-        }
-    }
-
-    private fun fillSingingBowl(ch: SoundChannel, buf: FloatArray) {
-        val ratios = doubleArrayOf(1.0, 2.01, 3.0, 4.03, 5.01, 6.02, 7.0, 8.04)
-        val amps = doubleArrayOf(1.0, 0.6, 0.4, 0.3, 0.25, 0.18, 0.12, 0.08)
-        val decays = doubleArrayOf(0.8, 1.2, 1.8, 2.5, 3.3, 4.2, 5.0, 6.0)
-        val baseFreq = 136.0
-
-        for (i in buf.indices) {
-            if (ch.bowlSampleCount > 120000) {
-                ch.bowlTime = 0.0
-                for (j in ch.bowlPhase.indices) {
-                    ch.bowlPhase[j] = ch.random.nextDouble() * 2.0 * PI
-                }
-                ch.bowlSampleCount = 0
-            }
-
-            var sample = 0.0
-            for (j in ratios.indices) {
-                val freq = baseFreq * ratios[j]
-                val env = amps[j] * exp(-ch.bowlTime * decays[j])
-                sample += env * sin(ch.bowlPhase[j])
-                ch.bowlPhase[j] += 2.0 * PI * freq / SAMPLE_RATE
-                if (ch.bowlPhase[j] > 2.0 * PI) ch.bowlPhase[j] -= 2.0 * PI
-            }
-
-            ch.bowlTime += 1.0 / SAMPLE_RATE
-            ch.bowlSampleCount++
-            buf[i] = (sample * 0.3).coerceIn(-1.0, 1.0).toFloat()
-        }
+        ch.readIndex = ri
     }
 }
