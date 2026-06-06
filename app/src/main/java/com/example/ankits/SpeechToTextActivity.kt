@@ -4,12 +4,8 @@ import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -21,7 +17,7 @@ import com.example.ankits.databinding.ActivitySpeechToTextBinding
 class SpeechToTextActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySpeechToTextBinding
-    private var speechRecognizer: SpeechRecognizer? = null
+    private val engine: AsrEngine = AsrEngineFactory.create()
     private var isListening = false
     private val resultBuilder = StringBuilder()
 
@@ -38,7 +34,6 @@ class SpeechToTextActivity : AppCompatActivity() {
 
         binding.backBtn.setOnClickListener { finish() }
         binding.settingsBtn.setOnClickListener { /* TODO */ }
-
         binding.micBtn.setOnClickListener { toggleListening() }
         binding.copyBtn.setOnClickListener { copyToClipboard() }
         binding.clearBtn.setOnClickListener { clearText() }
@@ -46,14 +41,18 @@ class SpeechToTextActivity : AppCompatActivity() {
         if (!hasRecordPermission()) {
             requestRecordPermission()
         }
+
+        engine.init(
+            context = this,
+            onReady = { setIdleState() },
+            onError = { msg -> setErrorState(msg) }
+        )
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        destroyRecognizer()
+        engine.shutdown()
     }
-
-    // --- Window insets ---
 
     private fun handleWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.rootLayout) { view, insets ->
@@ -69,8 +68,6 @@ class SpeechToTextActivity : AppCompatActivity() {
             insets
         }
     }
-
-    // --- Permission ---
 
     private fun hasRecordPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
@@ -91,35 +88,18 @@ class SpeechToTextActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_RECORD_AUDIO) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // ready to use
-            } else {
+            if (grantResults.isEmpty() || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "需要麦克风权限才能使用语音识别", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    // --- Speech Recognizer ---
-
-    private fun ensureRecognizer() {
-        if (speechRecognizer != null) return
-
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            setErrorState("语音识别不可用，请检查系统语音服务是否已启用")
-            return
-        }
-
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
-        speechRecognizer?.setRecognitionListener(RecognitionListenerImpl())
-    }
-
-    private fun destroyRecognizer() {
-        speechRecognizer?.apply {
+    private fun toggleListening() {
+        if (isListening) {
             stopListening()
-            cancel()
-            destroy()
+        } else {
+            startListening()
         }
-        speechRecognizer = null
     }
 
     private fun startListening() {
@@ -128,33 +108,46 @@ class SpeechToTextActivity : AppCompatActivity() {
             return
         }
 
-        ensureRecognizer()
-        if (speechRecognizer == null) return
+        resultBuilder.clear()
+        binding.resultText.text = ""
+        binding.partialHint.text = ""
+        binding.partialHint.visibility = android.view.View.GONE
 
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-        }
-
-        speechRecognizer?.startListening(intent)
+        engine.startListening(
+            onPartial = { text -> runOnUiThread { onPartialResult(text) } },
+            onFinal = { text -> runOnUiThread { onFinalResult(text) } },
+            onEndOfSpeech = { runOnUiThread { onEndOfSpeech() } },
+            onError = { msg -> runOnUiThread { onRecognitionError(msg) } }
+        )
+        setListeningState()
     }
 
     private fun stopListening() {
-        speechRecognizer?.stopListening()
+        engine.stopListening()
+        setIdleState()
     }
 
-    private fun toggleListening() {
-        if (isListening) {
-            stopListening()
-        } else {
-            resultBuilder.clear()
-            binding.resultText.text = ""
-            binding.partialHint.text = ""
-            binding.partialHint.visibility = android.view.View.GONE
-            startListening()
-        }
+    private fun onPartialResult(text: String) {
+        binding.partialHint.text = text
+        binding.partialHint.visibility = android.view.View.VISIBLE
+    }
+
+    private fun onFinalResult(text: String) {
+        appendText(text)
+        binding.partialHint.text = ""
+        binding.partialHint.visibility = android.view.View.GONE
+        setIdleState()
+    }
+
+    private fun onEndOfSpeech() {
+        binding.statusLabel.text = "正在识别…"
+    }
+
+    private fun onRecognitionError(message: String) {
+        binding.partialHint.text = ""
+        binding.partialHint.visibility = android.view.View.GONE
+        binding.statusLabel.text = message
+        setIdleState()
     }
 
     private fun setListeningState() {
@@ -220,71 +213,5 @@ class SpeechToTextActivity : AppCompatActivity() {
         binding.resultText.text = ""
         binding.partialHint.text = ""
         binding.partialHint.visibility = android.view.View.GONE
-    }
-
-    // --- Recognition Listener ---
-
-    private inner class RecognitionListenerImpl : RecognitionListener {
-
-        override fun onReadyForSpeech(params: Bundle?) {
-            setListeningState()
-        }
-
-        override fun onBeginningOfSpeech() {
-            binding.statusLabel.text = "捕捉到语音…"
-        }
-
-        override fun onRmsChanged(rmsdB: Float) {
-            // Could animate mic button based on volume level, but keep it simple
-        }
-
-        override fun onBufferReceived(buffer: ByteArray?) {}
-
-        override fun onEndOfSpeech() {
-            binding.statusLabel.text = "正在识别…"
-        }
-
-        override fun onPartialResults(partialResults: Bundle?) {
-            val matches = partialResults
-                ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                ?: return
-            if (matches.isNotEmpty()) {
-                binding.partialHint.text = matches[0]
-                binding.partialHint.visibility = android.view.View.VISIBLE
-            }
-        }
-
-        override fun onResults(results: Bundle?) {
-            val matches = results
-                ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                ?: return
-            if (matches.isNotEmpty()) {
-                appendText(matches[0])
-            }
-            binding.partialHint.text = ""
-            binding.partialHint.visibility = android.view.View.GONE
-            setIdleState()
-        }
-
-        override fun onError(error: Int) {
-            val message = when (error) {
-                SpeechRecognizer.ERROR_AUDIO -> "录音错误"
-                SpeechRecognizer.ERROR_CLIENT -> "客户端错误，请重试"
-                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "缺少麦克风权限"
-                SpeechRecognizer.ERROR_NETWORK -> "网络不可用，请检查网络连接"
-                SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "网络超时"
-                SpeechRecognizer.ERROR_NO_MATCH -> "未识别到语音，请重试"
-                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "语音引擎繁忙，请稍后重试"
-                SpeechRecognizer.ERROR_SERVER -> "语音服务出错"
-                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "未检测到语音"
-                else -> "未知错误 ($error)"
-            }
-            binding.partialHint.text = ""
-            binding.partialHint.visibility = android.view.View.GONE
-            binding.statusLabel.text = message
-            setIdleState()
-        }
-
-        override fun onEvent(eventType: Int, params: Bundle?) {}
     }
 }
