@@ -32,3 +32,8 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Large binary model files — download via scripts/download-models.sh
+app/src/main/assets/tts/
+app/src/main/assets/asr/
+app/src/main/jniLibs/
